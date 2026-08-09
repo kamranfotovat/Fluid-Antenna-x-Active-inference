@@ -228,6 +228,17 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   nearly IMMUNE to wrong rho/beta (served ports re-measured each slot) — big robustness win for free; (3) **only R
   (spatial structure) matters** — wrong R costs ~1.5. So the slow-loop's targeted job = learn R for the
   non-Jakes/model-mismatch case (Fig E), NOT a headline booster.
+- **Step 8 DONE — slow-loop learning of R + Fig E** (`sim/learning.py`, `sim/verify_step8_learning.py`).
+  `SpatialCorrEstimator`: accumulates y_i conj(y_j) over co-observed pairs, subtracts sigma_e^2 from the
+  diagonal, normalizes to unit-diagonal correlation (cancels per-user beta), PSD-projects -> R_hat from
+  PARTIAL noisy obs. All 3 gates pass: (L1) coverage->1, R_hat err falls with warm-up (0.74@30 -> 0.43@200);
+  (L2) on Jakes truth, learned recovers **100%** of the wrong-R(=I) gap (oracle 13.15 = learned 13.15 > wrong
+  11.67); (L3 = **Fig E**) with a genuinely non-Jakes (exponential) true channel, an agent that assumes Jakes
+  gets 12.83 while **learned R_hat matches the oracle (~13.2)**. Even a rough R_hat (43% Fro err) suffices —
+  capturing WHICH ports correlate matters, not exact values. Plot `step8_learning_mismatch.png` (3 R heatmaps:
+  true/learned/assumed-Jakes; Jakes shows false negative Bessel bands the true channel lacks). **This closes the
+  "learning" question: not a headline booster (matched case already optimal = zero-training strength), but a
+  working robustness tool that adapts to real (non-Jakes) propagation.**
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead
