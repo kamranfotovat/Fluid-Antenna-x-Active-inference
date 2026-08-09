@@ -68,7 +68,10 @@ def mmse_precoder(
     if error_cov is not None:
         A = A + error_cov
     G = np.linalg.solve(A, H)                        # M x K
-    scale = np.sqrt(P / np.real(np.trace(G @ G.conj().T)))
+    denom = np.real(np.trace(G @ G.conj().T))
+    if not np.isfinite(denom) or denom < 1e-300:     # zero channel estimate (e.g. mu=0 cold start)
+        return np.zeros_like(G)                       # -> no beam, rate 0 (correct, not NaN)
+    scale = np.sqrt(P / denom)
     return scale * G
 
 

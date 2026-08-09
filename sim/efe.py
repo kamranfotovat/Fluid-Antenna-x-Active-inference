@@ -149,8 +149,12 @@ def greedy_select(bel, M, S_prev=None, alpha=1.0, beta=1.0, eta_sw=1.0, e_sw=1.0
             epis_c = epistemic_value(bel, cand)
             marg = (alpha * (prag_c - prag_A) + beta * (epis_c - epis_A)
                     - _switch_marginal(n, prev_set, eta_sw, e_sw))
-            if marg > best[0]:
+            if np.isfinite(marg) and marg > best[0]:
                 best = (marg, n, prag_c, epis_c)
+        if best[1] is None:                          # all marginals tied/degenerate -> take any
+            n_star = min(remaining)
+            best = (0.0, n_star, pragmatic_value(bel, tuple(A + [n_star]), sigma2, P),
+                    epistemic_value(bel, tuple(A + [n_star])))
         _, n_star, prag_A, epis_A = best
         A.append(n_star); remaining.remove(n_star)
         trace.append((n_star, best[0]))

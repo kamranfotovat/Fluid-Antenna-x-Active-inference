@@ -193,6 +193,28 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   ms/slot is wall-clock/load-sensitive (saw 20-100ms across runs) — robust claims are O(N*M) scaling +
   ~500x vs exhaustive; re-benchmark cleanly for the paper. Pragmatic MMSE re-solve dominates cost
   (warm-start/rank-1 approx is the future optimization noted in EFE_DESIGN Sec.5).
+- **Step 6 DONE** (`sim/agent.py`, `sim/verify_step6.py`). Full closed loop predict->select->precode-from-
+  belief->transmit->observe->update. `AIFAgent` + `run_aif`/`run_genie`/`run_random` share a channel
+  trajectory for paired MC. **Operating point: 15 dB (sigma2=0.03), beta_w=0.5, eta_sw=1.0** (30 dB collapses
+  precoding on predicted CSI = Step-2 interference-limited finding; beta_w=1 over-explores, 0 never explores).
+  All 5 gates pass: (C1) stable, belief PSD; (C2) **closed-loop calibration** served-port post-var 0.245 ~=
+  realized err 0.242 (1.3%); (C3) learning curve 0->8.4 plateau in ~2 slots; (C4) **epistemic earns its place**
+  AIF(beta=.5) rate 8.39 vs beta=0 6.81 (+23%), objective 7.09 vs 6.85; (C5) genie rate 16.5 (AIF=51%), but on
+  switching-aware objective genie 10.6 vs AIF 7.1 (67%) since AIF churns 1.3 sw/slot vs genie's 6.
+  Plot `step6_closed_loop_check.png`. **Cold-start fix:** mu=0 at t=0 made MMSE normalization divide-by-zero;
+  guarded `mmse_precoder` (zero estimate -> zero precoder, rate 0) + `greedy_select` (NaN-safe, fallback pick).
+- **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
+  1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
+     of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead
+     observe-then-precode (pilots first, same slot), served-port error ~ sigma_e^2=0.01 -> rate near genie.
+     This ordering is a MAJOR design lever to expose/ablate in S7 (it decides whether the headline is
+     "matches genie" or "graceful partial-CSI tradeoff").
+  2. **Selection headroom is small in dense-correlated regime** (Step-2 7.4%), so exploration's benefit on
+     *rate* is real but modest (+23% here comes mostly from beta=0 getting stuck on cold-start ports). AIF's
+     bigger structural win is **switching-awareness** (1.3 vs genie 6 sw/slot). S7 should also test regimes
+     where active sensing pays more (sparser/directional channels, unequal port SNR, larger aperture).
+  3. **Fair baselines needed for S7:** current run_genie/run_random use FULL-CSI precoding -> too strong as
+     "lower" bounds. Need a partial-CSI naive baseline (raw noisy obs, no Kalman) to isolate AIF's value.
 - **Findings that shape later steps:**
   1. **Operating SNR is a design choice.** 30 dB (sigma^2=1e-3) makes ZF~=MMSE and stale CSI
      catastrophic (interference-limited). Run headline experiments at a **moderate SNR (~10-20 dB)**
