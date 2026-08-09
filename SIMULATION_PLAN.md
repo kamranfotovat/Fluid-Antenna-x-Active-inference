@@ -164,6 +164,15 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   genie-greedy 31.2 > norm-topM 28.9 > random 27.8 bits/s/Hz (**7.4% headroom** for a smarter
   selector). Greedy = **95.5%** of exhaustive optimum (rate is NOT submodular -> no (1-1/e) here;
   that guarantee is for the epistemic term). CSI-aging: 1 stale slot at rho=0.9 crushes 28.6 -> 10.0.
+- **Step 3 DONE** (`sim/belief.py`, `sim/verify_step3.py`). Complex per-user Kalman bank over
+  N ports; predict = aging, update = Joseph form. All 4 gates pass: (A) predict reproduces
+  the aging law `Sigma_t = rho^2t Sigma_0 + (1-rho^2t) beta R` to 2e-16; (B) one update drives
+  observed-port var to ~0.0099 < sigma_e^2=1e-2; (C) **calibration gate** — steady-state filter
+  Sigma matches empirical Cov(h-mu) to <4% rel-Fro (4000 MC); (D) observing port 12 drops a
+  correlated neighbour (|R|=0.47) by 0.22 vs a far port (|R|=0.10) by 0.01 -> info flows via R.
+  **Finding:** the singular `Sigma0=beta R` needs NO artificial jitter — the update only inverts the
+  M×M innovation cov (regularized by sigma_e^2 I), never Sigma; Joseph form keeps Sigma PSD.
+  `reg` knob exposed but defaults 0. Plot `step3_belief_check.png` shows sharpen-then-age + calibration.
 - **Findings that shape later steps:**
   1. **Operating SNR is a design choice.** 30 dB (sigma^2=1e-3) makes ZF~=MMSE and stale CSI
      catastrophic (interference-limited). Run headline experiments at a **moderate SNR (~10-20 dB)**
