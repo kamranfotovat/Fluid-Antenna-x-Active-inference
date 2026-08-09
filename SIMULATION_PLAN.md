@@ -255,6 +255,9 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   tracking, strong contribution but real work / journal-scale; (B) keep the static-regime story as the letter
   (84% genie, wins switching-aware objective, 0-switching = correct minimal-movement, zero-training, robust,
   learns R) & cite dynamic tracking as future work. Infrastructure committed for whichever path.
+  **DECISION (2026-08-10): PATH B chosen** — ship the static-regime letter now. Path A (moving-envelope tracking
+  belief) AND the scaling-up study (N=64/100+) are deferred and specified in `FUTURE_WORK.md` (separate file so
+  THIS plan stays the current-paper spec). Moving-hotspot infra (MovingHotspotSimulator, run_fixed) stays in repo.
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead
