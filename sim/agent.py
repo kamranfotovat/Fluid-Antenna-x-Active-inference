@@ -66,34 +66,47 @@ def _switch_count(S, S_prev):
     return 0 if S_prev is None else len(set(S) ^ set(S_prev))
 
 
-def run_aif(agent: AIFAgent, H, sigma_e2, rng, track_belief=False):
+def run_aif(agent: AIFAgent, H, sigma_e2, rng, track_belief=False, sense_first=False):
     """Run the closed-loop agent over a fixed channel trajectory H (T,K,N).
-    Returns dict with per-slot realized rate, switching count, and (optional) belief error."""
+
+    sense_first controls the intra-slot protocol -- the single biggest lever on rate:
+      False (predict-then-act): precode from the PREDICTED (aged) belief, then observe.
+             The beam is aimed on a stale guess -> aging error caps the rate.
+      True  (observe-then-precode): send pilots on the activated ports, Kalman-update,
+             THEN precode from the FRESH belief. Served-port CSI error ~ sigma_e^2, so
+             the rate approaches the genie. Selection still uses the predicted belief
+             (we must choose which ports to activate before we can sense them).
+
+    Returns per-slot realized rate, switching count, and (optional) belief-quality traces
+    measured at the moment the precoder is built (the CSI the beam actually uses).
+    """
     T, K, N = H.shape
     agent.reset()
     rate = np.zeros(T); switch = np.zeros(T)
-    obs_err = np.zeros(T)                            # mean posterior var on served ports (calibration)
-    real_err = np.zeros(T)                           # realized |h-mu|^2 on served ports
+    post_var = np.zeros(T); real_err = np.zeros(T)
     for t in range(T):
-        S = agent.select(first=(t == 0))
-        W = agent.precoder(S)
+        S = agent.select(first=(t == 0))            # predict (if t>0) + greedy on predicted belief
         idx = list(S)
-        Ht = H[t][:, idx].T                          # M x K true active channel
-        rate[t] = float(sinr_and_rates(Ht, W, agent.sigma2)[1].sum())
-        switch[t] = _switch_count(S, agent.S_prev)
-        # observe activated ports (noisy), then update
         noise = np.sqrt(sigma_e2 / 2) * (rng.standard_normal((K, len(idx)))
                                          + 1j * rng.standard_normal((K, len(idx))))
         y = H[t][:, idx] + noise
+        if sense_first:
+            agent.bel.update(S, y)                   # fresh belief BEFORE precoding
         if track_belief:
             served = idx[:K]                         # first K activated ~ the served ports
-            pv = agent.bel.port_variances()[:, served]
-            obs_err[t] = pv.mean()
+            post_var[t] = agent.bel.port_variances()[:, served].mean()
             real_err[t] = np.mean(np.abs(H[t][:, served] - agent.bel.mu[:, served]) ** 2)
-        agent.update(S, y)
+        W = agent.precoder(S)                        # fresh if sense_first, predicted otherwise
+        Ht = H[t][:, idx].T                          # M x K true active channel
+        rate[t] = float(sinr_and_rates(Ht, W, agent.sigma2)[1].sum())
+        switch[t] = _switch_count(S, agent.S_prev)
+        if sense_first:
+            agent.S_prev = S                         # belief already updated above
+        else:
+            agent.update(S, y)                       # precode-then-observe: update belief now
     out = dict(rate=rate, switch=switch)
     if track_belief:
-        out.update(post_var=obs_err, real_err=real_err)
+        out.update(post_var=post_var, real_err=real_err)
     return out
 
 

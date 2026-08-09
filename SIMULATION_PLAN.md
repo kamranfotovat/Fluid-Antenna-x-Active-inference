@@ -203,6 +203,14 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   switching-aware objective genie 10.6 vs AIF 7.1 (67%) since AIF churns 1.3 sw/slot vs genie's 6.
   Plot `step6_closed_loop_check.png`. **Cold-start fix:** mu=0 at t=0 made MMSE normalization divide-by-zero;
   guarded `mmse_precoder` (zero estimate -> zero precoder, rate 0) + `greedy_select` (NaN-safe, fallback pick).
+- **Step 7a DONE** (`agent.run_aif(sense_first=...)`, `sim/verify_step7_protocol.py`). Added the intra-slot
+  protocol switch (finding #1 below) + verified Doppler robustness. `sense_first=True` (observe-then-precode):
+  pilots on activated ports -> Kalman update -> THEN precode from fresh belief. All 3 gates pass. **Headline
+  numbers (15dB, 20% obs budget):** observe-then-precode reaches **79-89% of genie** and is **flat across
+  rho** (0.95->0.6), while predict-then-act falls **64%->25%**; rate ratio up to **3.17x** at rho=0.6; served
+  CSI fresh (~0.009 = sigma_e^2) and calibrated. Figure `step7_protocol_doppler.png` = strong Fig C candidate
+  (this is the "matches genie while observing 20% of ports, robust to Doppler" story). **observe-then-precode
+  is now the DEFAULT headline protocol; predict-then-act is the ablation.** Finding #1 below is RESOLVED.
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead
