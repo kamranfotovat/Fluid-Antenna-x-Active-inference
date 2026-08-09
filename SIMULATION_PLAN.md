@@ -173,6 +173,17 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   **Finding:** the singular `Sigma0=beta R` needs NO artificial jitter — the update only inverts the
   M×M innovation cov (regularized by sigma_e^2 I), never Sigma; Joseph form keeps Sigma PSD.
   `reg` knob exposed but defaults 0. Plot `step3_belief_check.png` shows sharpen-then-age + calibration.
+- **Step 4 DONE** (`sim/efe.py`, `sim/verify_step4.py`). The three EFE terms in isolation, all in
+  BITS. Pragmatic = robust-MMSE expected sum-rate with imperfect-CSI lower bound (CSI-error term
+  `sum_j w_j^H Cov_k w_j`); epistemic = `sum_k log2 det(I + Cov_k/sigma_e^2)` (M×M form, finite even
+  for singular Sigma); switching = `eta_sw e_sw |S XOR S_prev|`. All 8 gates pass: (E1) pragmatic ==
+  full-CSI MMSE rate at Sigma->0 to 0e0; (E1b) pragmatic decreases with uncertainty; (E2) epistemic ==
+  entropy drop (logdet reduction)/ln2 to 2e-14; (E3) monotone & (E4) submodular over 400 random
+  A⊆B trials; (E5) info sharing via R — conditioning on correlated n0 cuts a neighbour's marginal
+  info (drop 1.07) far more than a far port's (0.04); (E6) switching = symdiff count. Plot
+  `step4_efe_terms_check.png`. **Note:** single-port epistemic is identical across ports (diag Sigma =
+  beta_k), so the R-driven selectivity lives entirely in the *conditional/marginal* gains — greedy (Step 5)
+  is what exploits it.
 - **Findings that shape later steps:**
   1. **Operating SNR is a design choice.** 30 dB (sigma^2=1e-3) makes ZF~=MMSE and stale CSI
      catastrophic (interference-limited). Run headline experiments at a **moderate SNR (~10-20 dB)**
