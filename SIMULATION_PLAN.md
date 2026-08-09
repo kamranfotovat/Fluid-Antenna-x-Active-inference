@@ -258,6 +258,17 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   **DECISION (2026-08-10): PATH B chosen** — ship the static-regime letter now. Path A (moving-envelope tracking
   belief) AND the scaling-up study (N=64/100+) are deferred and specified in `FUTURE_WORK.md` (separate file so
   THIS plan stays the current-paper spec). Moving-hotspot infra (MovingHotspotSimulator, run_fixed) stays in repo.
+- **Step 10 DONE — DRL baseline comparison** (`sim/drl_baseline.py` Transformer port-selector trained by
+  policy gradient on the Eq.7 objective; `sim/verify_step10_drl.py`). Answers "did we compare to literature
+  methods?" — yes now (Paper-3-style DRL). All 3 gates pass (MC=20, GPU, ~5min train). **Results (objective,
+  eta_sw=1):** genie(full CSI) 10.4 | DRL full-CSI 12.96 (locked, 0 sw) | DRL partial 12.03 | **AIF partial
+  13.54** | naive 10.5. **(L1) Sample efficiency (Fig B):** DRL climbs 10.6→13.0 over ~100-200 iters; AIF flat
+  13.54 from iter 0 (zero training), above DRL at every stage. **(L2) No full-CSI advantage:** AIF partial (20%
+  CSI, no training) 13.54 > DRL full-CSI+full-training 12.96. **(L3) Competence gate:** DRL(eta=0) hits 85% of
+  genie RATE → a fair baseline, not a straw man (85% is the top-M-scoring ceiling; can't capture full
+  combinatorial interference like greedy-on-true-CSI). Figure `figB_drl_sample_efficiency.png`. **Honest note:**
+  under observe-then-precode selection headroom is small so DRL/naive/AIF rates are close; AIF's edges are
+  zero-training + switching-awareness + partial-CSI robustness, NOT raw selection. torch 2.7+CUDA available.
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead

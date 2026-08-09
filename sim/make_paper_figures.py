@@ -263,7 +263,8 @@ def _save(fig, name):
 
 
 def copy_diagnostics():
-    mp = {"step0_channel_check.png": "diag_step0_channel.png",
+    mp = {"step10_drl_comparison.png": "figB_drl_sample_efficiency.png",   # from verify_step10_drl.py
+          "step0_channel_check.png": "diag_step0_channel.png",
           "step3_belief_check.png": "diag_step3_belief_calibration.png",
           "step4_efe_terms_check.png": "diag_step4_efe_terms.png",
           "step5_greedy_check.png": "diag_step5_greedy_optimality.png"}
@@ -281,6 +282,8 @@ def write_index():
         "the genie on the switching-aware objective (it barely moves the antenna).", "",
         "## Results figures",
         "- **figA_observation_budget.png** - performance vs observation budget M/N (headline).",
+        "- **figB_drl_sample_efficiency.png** - vs a trained DRL baseline: AIF (zero training, 20% CSI) "
+        "beats the fully-trained full-CSI DRL on the objective (from verify_step10_drl.py).",
         "- **figR_results_baselines.png** - AIF vs genie/naive/random (rate + objective + switching).",
         "- **figC_protocol_doppler.png** - observe-then-precode vs predict-then-act vs Doppler.",
         "- **figD_exploration_weight.png** - beta_w sweep (sweet spot ~0.1-0.25).",
