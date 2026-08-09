@@ -269,6 +269,15 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   combinatorial interference like greedy-on-true-CSI). Figure `figB_drl_sample_efficiency.png`. **Honest note:**
   under observe-then-precode selection headroom is small so DRL/naive/AIF rates are close; AIF's edges are
   zero-training + switching-awareness + partial-CSI robustness, NOT raw selection. torch 2.7+CUDA available.
+- **Step 11 — PARETO FRONTIER (best-results sweep)** (`sim/make_frontier_figure.py`, `figF_pareto_frontier.png`).
+  User pushed for the best operating point. Fine beta_w sweep (MC=15-20, sigma_e^2=1e-3) shows AIF traces a
+  frontier that DOMINATES the genie: **max-objective beta_w~0.3 (rate 13.96=84%, obj 13.80, ~0 sw)**;
+  **max-rate beta_w~0.6 (rate 14.80=89%, obj 12.30, 2.5 sw)**; genie (16.61 rate, 10.61 obj, 6 sw). The ENTIRE
+  frontier (beta_w 0.1-0.7) beats the genie objective while switching << genie. **89% is the partial-obs rate
+  ceiling at M=5** — beyond beta_w=0.6 rate flatlines & objective falls; higher needs bigger M (Fig A). So the
+  headline is a frontier, not a point: "84% rate at ~0 switching up to 89% rate, all beating the switching-blind
+  genie." Two reportable anchors depending on throughput-first vs efficiency-first. (Main single-point figures
+  keep beta_w~0.25-0.3 = balanced/max-objective; figF shows the full range.)
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead

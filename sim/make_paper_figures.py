@@ -288,7 +288,10 @@ def write_index():
         "- **figC_protocol_doppler.png** - observe-then-precode vs predict-then-act vs Doppler.",
         "- **figD_exploration_weight.png** - beta_w sweep (sweet spot ~0.1-0.25).",
         "- **figLC_closed_loop_learning.png** - closed-loop learning curve + bars.",
-        "- **figE_learning_mismatch.png** - learning R adapts to a non-Jakes channel.", "",
+        "- **figE_learning_mismatch.png** - learning R adapts to a non-Jakes channel.",
+        "- **figF_pareto_frontier.png** - the AIF rate/switching Pareto frontier DOMINATES the genie; the "
+        "whole frontier (beta_w 0.1-0.7) beats the genie objective, from 84% rate/~0 switching to 89% rate "
+        "(from make_frontier_figure.py).", "",
         "## Diagnostics (mechanism-verification plots)",
         "- diag_step0_channel / diag_step3_belief_calibration / diag_step4_efe_terms / "
         "diag_step5_greedy_optimality.", "",
