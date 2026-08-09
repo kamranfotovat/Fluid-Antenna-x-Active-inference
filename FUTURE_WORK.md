@@ -111,8 +111,47 @@ is low-rank and full-CSI pilot overhead is prohibitive." This is likely a strong
 
 ---
 
-## 3. Other extensions (parking lot)
+## 3. Inference front-end upgrade — GP / S-BAR belief instead of the linear-Gaussian Kalman
+
+**Why (from the related-work read):** our belief is a linear-Gaussian Kalman filter over the ports with a
+FIXED Jakes correlation R as its (implicit) kernel. The **Successive Bayesian Reconstructor, S-BAR**
+(Zhang, Zhu, Dai, Heath, IEEE TWC 2025) does essentially the same *reconstruction* but as **Gaussian-process
+regression** with a **learned/experiential kernel**, and is explicitly robust to **model mismatch** (does not
+assume Jakes/sparsity/slow-variation). It beats model-based estimators on estimation accuracy. So S-BAR is a
+strictly stronger version of our PERCEPTION block.
+
+**Idea:** swap our Kalman belief for a **GP / S-BAR-style reconstructor** as the front-end that the EFE
+consumes. Benefits:
+  - Better partial-CSI inference under real (non-Jakes) propagation -> directly improves the wrong-R case we
+    saw in Step 8 (learning R) and the model-mismatch figure (Fig E). This is the principled version of our
+    hand-rolled R-learning.
+  - The GP kernel is **learned from data** (kernel learning), unifying "estimate the channel" and "learn R".
+  - GP over a CONTINUOUS input naturally gives the **continuous-aperture / movable-antenna** belief in §2e
+    (belief becomes a field over the aperture; EFE becomes gradient-based positioning).
+  - The GP posterior variance plugs straight into our EPISTEMIC term (info gain = entropy reduction), and the
+    posterior mean into the PRAGMATIC term — the active-inference machinery is unchanged; only the belief
+    representation upgrades.
+**Positioning note (important):** S-BAR / GP is CHANNEL ESTIMATION only — no port SELECTION, no switching
+cost, no rate/serving objective. Our contribution stays the **decision layer (EFE: what to sense, what to
+serve, when to move)** built ON TOP of Bayesian reconstruction. Cite S-BAR as the inference front-end we build
+on; do NOT claim to beat it on estimation. (See also the LMMSE estimator, Skouroumounis & Krikidis, TComm 2023
+— sequential LMMSE + pick-strongest = essentially our `naive` baseline + a stochastic-geometry outage analysis;
+we beat its selection heuristic, cite its analysis.)
+
+## 4. Physical (distance-weighted) switching cost
+
+Currently switching cost = number of ports changed, |S XOR S_prev|. But the fluid-antenna moving delay is
+proportional to the DISTANCE moved (Eq. 2 of the IDET paper: tau ∝ |i-j|). A **distance-weighted** switching
+cost would make SMALL exploratory moves cheap and large jumps expensive -> the agent could sense/track nearby
+ports almost for free, potentially shifting the whole rate/switching Pareto frontier up (esp. relevant for the
+moving-hotspot tracking in §1, where cheap local moves = cheap tracking). Worth modelling and re-running the
+frontier.
+
+## 5. Other extensions (parking lot)
   - Multi-step (planning) EFE instead of myopic one-slot selection (RESEARCH_PLAN Sec. 7).
   - Hybrid beamforming / wideband (beam squint) — ties to the THz paper studied earlier.
-  - DQN baseline reproduction (Paper 3) for a head-to-head sample-efficiency figure (Fig B).
+  - DONE: DQN baseline (Step 10) and bandit baseline (Step 12) -> model-based AIF beats model-free learning.
+    A **structured/correlated bandit** (exploiting R, like the Online-Learning paper's use of J) would be a
+    fairer, stronger bandit — narrowing the gap by moving the bandit TOWARD our model-based approach (itself a
+    nice framing: "the better a bandit does, the more it has to become model-based").
   - Per-user (rather than shared) hotspots and joint multi-user tracking.
