@@ -211,6 +211,23 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   CSI fresh (~0.009 = sigma_e^2) and calibrated. Figure `step7_protocol_doppler.png` = strong Fig C candidate
   (this is the "matches genie while observing 20% of ports, robust to Doppler" story). **observe-then-precode
   is now the DEFAULT headline protocol; predict-then-act is the ablation.** Finding #1 below is RESOLVED.
+- **Step 7b DONE — hyperparam tuning + fair baselines** (`agent.run_naive`, `agent.run_random_partial`,
+  `sim/verify_step7_baselines.py`). **Tuning: optimal beta_w = 0.1-0.25** (NOT 0.5 — that was for predict-then-act);
+  a little curiosity lifts rate +13% with ZERO extra switching (explores early, locks). **Locked op point:
+  beta_w=0.25.** Fair partial-CSI competitors (same 20% budget, observe-then-precode): genie(full CSI) obj 10.6
+  rate 16.5 sw 6.0 | **AIF obj 13.2 rate 13.3 sw 0.0** | naive(no inference) obj 9.8 rate 12.9 sw 3.1 | random
+  obj 4.5 rate 12.4 sw 8.0. All 4 gates pass. **THE STORY:** on RATE, AIF~=naive (selection headroom small,
+  both get fresh pilots) at 80% of genie; on the switching-aware OBJECTIVE (Eq.7, the real metric — same one
+  the switching-cost FAS papers care about) **AIF beats naive +35% AND beats the genie**, because EFE unifies
+  rate+info-switching -> AIF finds a good set and STOPS moving (0 vs naive 3 vs genie 6 sw/slot). AIF's decisive
+  edge is STABILITY/switching-awareness, not raw selection. Plot `step7_baselines.png`.
+- **Step 7c: LEARNING question ANSWERED (model-mismatch probe, MC=12).** True channel rho=0.9/Jakes R; vary the
+  agent's ASSUMED params: correct 13.19 | wrong rho=0.5 -> 13.17 (~no harm!) | wrong rho=0.99 -> 12.15 | wrong R
+  (uncorrelated I) -> 11.70 | wrong beta -> 13.20. **Conclusions:** (1) with correct params we're at the Bayesian
+  OPTIMUM — learning can only tie (confirms AIF's zero-training selling point); (2) observe-then-precode makes us
+  nearly IMMUNE to wrong rho/beta (served ports re-measured each slot) — big robustness win for free; (3) **only R
+  (spatial structure) matters** — wrong R costs ~1.5. So the slow-loop's targeted job = learn R for the
+  non-Jakes/model-mismatch case (Fig E), NOT a headline booster.
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead

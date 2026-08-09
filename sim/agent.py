@@ -136,6 +136,55 @@ def run_random(H, M, rng, sigma2=1e-3, P=1.0):
     return dict(rate=rate, switch=switch)
 
 
+def _obs(h_slice, idx, K, sigma_e2, rng):
+    """Noisy pilots on the active ports: y = h[idx] + CN(0, sigma_e^2 I). Shape (K, |idx|)."""
+    return h_slice[:, idx] + np.sqrt(sigma_e2 / 2) * (
+        rng.standard_normal((K, len(idx))) + 1j * rng.standard_normal((K, len(idx))))
+
+
+def run_naive(H, M, sigma_e2, rng, sigma2=1e-3, P=1.0, refresh=1):
+    """Fair partial-CSI competitor -- NO active inference (the key baseline to beat).
+
+    Same partial access + observe-then-precode as the agent, but replaces the generative
+    Kalman belief with a memoryless point estimate: last measured value held per port (no
+    temporal prediction, no spatial inference, no uncertainty). Selection = top-M by
+    last-known aggregate power (a Paper-3-style heuristic) plus `refresh` round-robin ports
+    for PASSIVE (non-active) sensing. Precoding uses the fresh pilots on the chosen ports.
+    Isolates exactly what active inference buys: model-based belief + EFE-unified selection.
+    """
+    T, K, N = H.shape
+    est = np.zeros((K, N), dtype=complex)
+    rate = np.zeros(T); switch = np.zeros(T); S_prev = None; rr = 0
+    for t in range(T):
+        power = np.sum(np.abs(est) ** 2, axis=0)
+        S = list(np.argsort(power)[::-1][:M - refresh])
+        c = 0
+        while c < refresh:                            # passive round-robin refresh of stale ports
+            if rr % N not in S:
+                S.append(rr % N); c += 1
+            rr += 1
+        S = tuple(sorted(S)); idx = list(S)
+        y = _obs(H[t], idx, K, sigma_e2, rng)
+        est[:, idx] = y                               # raw held estimate (no filtering)
+        W = mmse_precoder(y.T, P=P, sigma2=sigma2)    # precode on fresh pilots
+        rate[t] = float(sinr_and_rates(H[t][:, idx].T, W, sigma2)[1].sum())
+        switch[t] = _switch_count(S, S_prev); S_prev = S
+    return dict(rate=rate, switch=switch)
+
+
+def run_random_partial(H, M, sigma_e2, rng, sigma2=1e-3, P=1.0):
+    """Partial-CSI lower bound: random selection, observe-then-precode on fresh pilots."""
+    T, K, N = H.shape
+    rate = np.zeros(T); switch = np.zeros(T); S_prev = None
+    for t in range(T):
+        S = tuple(sorted(rng.choice(N, size=M, replace=False).tolist())); idx = list(S)
+        y = _obs(H[t], idx, K, sigma_e2, rng)
+        W = mmse_precoder(y.T, P=P, sigma2=sigma2)
+        rate[t] = float(sinr_and_rates(H[t][:, idx].T, W, sigma2)[1].sum())
+        switch[t] = _switch_count(S, S_prev); S_prev = S
+    return dict(rate=rate, switch=switch)
+
+
 def objective(res, eta_sw=1.0, e_sw=1.0):
     """Eq.7 long-term objective: mean over slots of (sum-rate - eta_sw e_sw * switch)."""
     return float(np.mean(res["rate"] - eta_sw * e_sw * res["switch"]))
