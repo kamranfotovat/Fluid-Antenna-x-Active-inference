@@ -22,6 +22,7 @@ dimensionless trade-off weights.
 
 from __future__ import annotations
 
+import itertools
 import numpy as np
 
 from precoding import mmse_precoder
@@ -63,6 +64,8 @@ def pragmatic_value(bel, S, sigma2=1e-3, P=1.0, return_rates=False):
     unsure about user k's active channel, its effective SINR drops -> the value is
     automatically conservative. Bits.
     """
+    if len(S) == 0:
+        return (0.0, np.zeros(bel.K)) if return_rates else 0.0
     W, Hhat, covs = robust_mmse_from_belief(bel, S, sigma2, P)
     eff = Hhat.conj().T @ W                            # K x K, eff[k,j] = m_k^H w_j
     power = np.abs(eff) ** 2
@@ -86,6 +89,8 @@ def epistemic_value(bel, S, return_per_user=False):
     """
     idx = list(S)
     M = len(idx)
+    if M == 0:
+        return (0.0, np.zeros(bel.K)) if return_per_user else 0.0
     I_M = np.eye(M)
     inv_se2 = 1.0 / bel.sigma_e2
     vals = np.empty(bel.K)
@@ -114,3 +119,53 @@ def expected_free_energy(bel, S, S_prev=None, alpha=1.0, beta=1.0,
     swc = switching_cost(S, S_prev, eta_sw, e_sw)
     G = -alpha * prag - beta * epis + swc
     return G, {"pragmatic": prag, "epistemic": epis, "switching": swc}
+
+
+# --------------------------------------------------------------------------- greedy selection (Step 5)
+def _switch_marginal(n, S_prev_set, eta_sw, e_sw) -> float:
+    """Marginal switching cost of adding port n. Switching is MODULAR:
+    |S XOR S_prev| = |S_prev| + sum_{n in S} (1 - 2*[n in S_prev]). So adding a
+    NEW port costs +eta*e, re-using a previous port credits -eta*e."""
+    return eta_sw * e_sw * (1.0 - 2.0 * (1.0 if n in S_prev_set else 0.0))
+
+
+def greedy_select(bel, M, S_prev=None, alpha=1.0, beta=1.0, eta_sw=1.0, e_sw=1.0,
+                  sigma2=1e-3, P=1.0, return_trace=False):
+    """Greedily build S (|S|=M) minimising G(S) = -alpha*prag -beta*epis +switch, i.e.
+    maximising J(S) = alpha*prag + beta*epis - switch. Each step adds the port with the
+    largest marginal J. O(N*M) objective evaluations. The epistemic part is monotone
+    submodular -> (1-1/e) guarantee on that component; pragmatic is a marginal heuristic.
+    """
+    N = bel.N
+    prev_set = set() if S_prev is None else set(S_prev)
+    A, remaining = [], set(range(N))
+    prag_A, epis_A = 0.0, 0.0
+    trace = []
+    for _ in range(M):
+        best = (-np.inf, None, None, None)  # (marginal, n, prag_cand, epis_cand)
+        for n in remaining:
+            cand = tuple(A + [n])
+            prag_c = pragmatic_value(bel, cand, sigma2, P)
+            epis_c = epistemic_value(bel, cand)
+            marg = (alpha * (prag_c - prag_A) + beta * (epis_c - epis_A)
+                    - _switch_marginal(n, prev_set, eta_sw, e_sw))
+            if marg > best[0]:
+                best = (marg, n, prag_c, epis_c)
+        _, n_star, prag_A, epis_A = best
+        A.append(n_star); remaining.remove(n_star)
+        trace.append((n_star, best[0]))
+    S = tuple(sorted(A))
+    return (S, trace) if return_trace else S
+
+
+def exhaustive_select(bel, M, S_prev=None, alpha=1.0, beta=1.0, eta_sw=1.0, e_sw=1.0,
+                      sigma2=1e-3, P=1.0):
+    """Brute force over all C(N, M) sets -> the S minimising G (use only for small N).
+    Returns (S*, J*) with J* = -G* (the maximised objective)."""
+    best_S, best_J = None, -np.inf
+    for S in itertools.combinations(range(bel.N), M):
+        G, _ = expected_free_energy(bel, S, S_prev=S_prev, alpha=alpha, beta=beta,
+                                    eta_sw=eta_sw, e_sw=e_sw, sigma2=sigma2, P=P)
+        if -G > best_J:
+            best_J, best_S = -G, S
+    return best_S, best_J

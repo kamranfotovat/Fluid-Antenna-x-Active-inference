@@ -184,6 +184,15 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   `step4_efe_terms_check.png`. **Note:** single-port epistemic is identical across ports (diag Sigma =
   beta_k), so the R-driven selectivity lives entirely in the *conditional/marginal* gains — greedy (Step 5)
   is what exploits it.
+- **Step 5 DONE** (`efe.greedy_select` / `efe.exhaustive_select`, `sim/verify_step5.py`). Greedy builds
+  S by max marginal J = alpha*prag + beta*epis - switch, O(N*M) evals. All 6 gates pass: (G1) mechanics;
+  (G2) epistemic-only greedy = **99.15%** of exhaustive opt (>> 1-1/e floor); (G3) combined greedy = exhaustive
+  to **0% gap** over 24 N=8,M=3 cases (machinery validated by G2<100%); (G4) switching modular reconstruction
+  exact; (G5) latency **~20 ms/slot** at N=25,M=5 vs projected **~9.4 s** exhaustive = **~477x** speed-up;
+  (G6) alpha/beta knob flips exploit vs explore sets 6/6. Plot `step5_greedy_check.png`. **Caveat:** absolute
+  ms/slot is wall-clock/load-sensitive (saw 20-100ms across runs) — robust claims are O(N*M) scaling +
+  ~500x vs exhaustive; re-benchmark cleanly for the paper. Pragmatic MMSE re-solve dominates cost
+  (warm-start/rank-1 approx is the future optimization noted in EFE_DESIGN Sec.5).
 - **Findings that shape later steps:**
   1. **Operating SNR is a design choice.** 30 dB (sigma^2=1e-3) makes ZF~=MMSE and stale CSI
      catastrophic (interference-limited). Run headline experiments at a **moderate SNR (~10-20 dB)**
