@@ -278,6 +278,16 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   headline is a frontier, not a point: "84% rate at ~0 switching up to 89% rate, all beating the switching-blind
   genie." Two reportable anchors depending on throughput-first vs efficiency-first. (Main single-point figures
   keep beta_w~0.25-0.3 = balanced/max-objective; figF shows the full range.)
+- **Step 12 DONE — BANDIT baseline comparison** (`sim/bandit_baseline.py` combinatorial-UCB, model-free, cf.
+  Zou et al. WCL'24; `sim/verify_step12_bandit.py`). Completes the "model-based AIF > model-free learning" story
+  (DRL in S10, bandit here). Gave the bandit its fairest shot by sweeping exploration c. All 3 gates pass (MC=20):
+  bandit objective by c: 12.23(c=0) / 12.08 / 11.74 / 10.89 / 9.59(c=1) — **AIF 13.69 beats the bandit at EVERY c
+  (+12% over its best)**; AIF switch 0.00 vs bandit >=1.0 (bandit never locks: per-port power is ~equal so UCB
+  explores perpetually); rates comparable (AIF 13.71 >= bandit 12.95, honest — observe-then-precode makes
+  selection headroom small). **Root cause:** model-free bandit has no per-port persistent signal to learn in the
+  equal-average-power FAS regime → pure exploration cost; AIF's model-based belief + switching-aware EFE locks
+  immediately. Figure `figG_bandit_comparison.png`. Note: a structured/correlated bandit (using R) would be
+  stronger = moving toward our model-based approach (see FUTURE_WORK §5).
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead

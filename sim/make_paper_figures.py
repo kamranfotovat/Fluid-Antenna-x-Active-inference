@@ -264,6 +264,7 @@ def _save(fig, name):
 
 def copy_diagnostics():
     mp = {"step10_drl_comparison.png": "figB_drl_sample_efficiency.png",   # from verify_step10_drl.py
+          "step12_bandit_comparison.png": "figG_bandit_comparison.png",    # from verify_step12_bandit.py
           "step0_channel_check.png": "diag_step0_channel.png",
           "step3_belief_check.png": "diag_step3_belief_calibration.png",
           "step4_efe_terms_check.png": "diag_step4_efe_terms.png",
@@ -291,7 +292,9 @@ def write_index():
         "- **figE_learning_mismatch.png** - learning R adapts to a non-Jakes channel.",
         "- **figF_pareto_frontier.png** - the AIF rate/switching Pareto frontier DOMINATES the genie; the "
         "whole frontier (beta_w 0.1-0.7) beats the genie objective, from 84% rate/~0 switching to 89% rate "
-        "(from make_frontier_figure.py).", "",
+        "(from make_frontier_figure.py).",
+        "- **figG_bandit_comparison.png** - vs a model-free bandit (UCB) baseline: AIF beats it at every "
+        "exploration setting, same rate but higher objective and ~no switching (from verify_step12_bandit.py).", "",
         "## Diagnostics (mechanism-verification plots)",
         "- diag_step0_channel / diag_step3_belief_calibration / diag_step4_efe_terms / "
         "diag_step5_greedy_optimality.", "",
