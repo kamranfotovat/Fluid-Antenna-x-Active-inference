@@ -1,19 +1,18 @@
 # Paper figures
 
-Operating point unless noted: N=25 ports (5x5), K=3 users, M=5 activated (20% observation budget), 15 dB, rho=0.9, beta_w=0.25, eta_sw=1, observe-then-precode.
+**All figures generated at ONE operating point:** N=25, K=3, M=5 (20% obs), 15 dB, sigma_e^2=1e-3, rho=0.9, beta_w=0.25, observe-then-precode.
 
-## Headline / results
-- **figA_observation_budget.png** - performance vs observation budget M/N (the headline: AIF tracks a high fraction of the genie while measuring a fraction of ports).
-- **figR_results_baselines.png** - AIF vs genie / naive / random: rate is comparable but AIF wins the switching-aware objective and barely moves the antenna.
-- **figC_protocol_doppler.png** - observe-then-precode reaches ~80-89% of genie and is robust to Doppler; predict-then-act (ablation) collapses.
-- **figD_exploration_weight.png** - exploration-weight sweep: sweet spot around beta_w=0.1-0.25.
-- **figE_learning_mismatch.png** - learning R from data adapts to a non-Jakes channel (objection-proofing); learned R_hat matches the oracle.
-- **figLC_closed_loop_learning.png** - closed-loop learning curve + rate/objective bars.
+Headline: AIF gets ~84% of the genie's rate while measuring only 20% of ports, and BEATS the genie on the switching-aware objective (it barely moves the antenna).
 
-## Diagnostics (verification plots)
-- diag_step0_channel.png - channel generator (Jakes R + AR(1)).
-- diag_step3_belief_calibration.png - Kalman belief calibration + CSI aging.
-- diag_step4_efe_terms.png - EFE terms (submodular epistemic, conservative pragmatic).
-- diag_step5_greedy_optimality.png - greedy vs exhaustive + latency.
+## Results figures
+- **figA_observation_budget.png** - performance vs observation budget M/N (headline).
+- **figR_results_baselines.png** - AIF vs genie/naive/random (rate + objective + switching).
+- **figC_protocol_doppler.png** - observe-then-precode vs predict-then-act vs Doppler.
+- **figD_exploration_weight.png** - beta_w sweep (sweet spot ~0.1-0.25).
+- **figLC_closed_loop_learning.png** - closed-loop learning curve + bars.
+- **figE_learning_mismatch.png** - learning R adapts to a non-Jakes channel.
 
-Regenerate with `python sim/make_paper_figures.py` (after running the verify_*.py that produce the step plots).
+## Diagnostics (mechanism-verification plots)
+- diag_step0_channel / diag_step3_belief_calibration / diag_step4_efe_terms / diag_step5_greedy_optimality.
+
+Regenerate: `python sim/make_paper_figures.py`.
