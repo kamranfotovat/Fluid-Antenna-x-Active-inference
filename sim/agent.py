@@ -185,6 +185,20 @@ def run_random_partial(H, M, sigma_e2, rng, sigma2=1e-3, P=1.0):
     return dict(rate=rate, switch=switch)
 
 
+def run_fixed(H, S, sigma_e2, rng, sigma2=1e-3, P=1.0):
+    """Hold a FIXED port set S forever (observe-then-precode on fresh pilots, never switch).
+    Demonstrates why tracking is needed when the good ports move: rate decays as the hotspot
+    drifts away from S. Zero switching by construction."""
+    T, K, N = H.shape
+    idx = list(S)
+    rate = np.zeros(T); switch = np.zeros(T)
+    for t in range(T):
+        y = _obs(H[t], idx, K, sigma_e2, rng)
+        W = mmse_precoder(y.T, P=P, sigma2=sigma2)
+        rate[t] = float(sinr_and_rates(H[t][:, idx].T, W, sigma2)[1].sum())
+    return dict(rate=rate, switch=switch)
+
+
 def objective(res, eta_sw=1.0, e_sw=1.0):
     """Eq.7 long-term objective: mean over slots of (sum-rate - eta_sw e_sw * switch)."""
     return float(np.mean(res["rate"] - eta_sw * e_sw * res["switch"]))

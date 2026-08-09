@@ -239,6 +239,22 @@ slow-timescale learning is deferred to **Step 8** so it does not complicate gett
   true/learned/assumed-Jakes; Jakes shows false negative Bessel bands the true channel lacks). **This closes the
   "learning" question: not a headline booster (matched case already optimal = zero-training strength), but a
   working robustness tool that adapts to real (non-Jakes) propagation.**
+- **Step 9 — MOVING-HOTSPOT scenario (dynamic tracking): HONEST NEGATIVE RESULT** (`channel.MovingHotspotSimulator`,
+  `agent.run_fixed`). Built a channel with a Gaussian power sweet-spot that DRIFTS (circles the aperture every
+  ~40 slots) so good ports move & a fixed set decays. Purpose: make switching non-trivial & show active tracking.
+  **Findings:** (1) switching IS now necessary — fixed-hold decays (rate 8.7), genie churns ~5 sw/slot to track
+  (rate 12.5). This CONFIRMS the earlier 0-switching was regime-specific & CORRECT for the static-power world,
+  not a bug. (2) BUT our current AIF does NOT track well: at η_sw=1/β_w=0.25 it locks (0 sw, rate 8.9 ≈ fixed
+  8.8) and is BEATEN by naive round-robin (9.6); cranking β_w just makes it thrash (9-10 sw) with LOWER rate.
+  Even on an easy big/slow hotspot AIF only marginally beats naive (12.2 vs 11.9) at 7.7 sw. **ROOT CAUSE:** the
+  generative model assumes STATIONARY equal-power (Jakes+AR1) fading — it's blind to the moving power envelope,
+  so it attributes hotspot power to random fading (decays via ρ) & can only REACT by blind sensing, no better
+  than round-robin. To win at tracking, the belief must MODEL the smooth moving power structure (a latent
+  hotspot-location state / per-port power that drifts) so it can PREDICT where the hotspot goes & sense ahead.
+  **DECISION POINT (asked user):** (A) extend generative model with a moving-power-envelope belief = proper AIF
+  tracking, strong contribution but real work / journal-scale; (B) keep the static-regime story as the letter
+  (84% genie, wins switching-aware objective, 0-switching = correct minimal-movement, zero-training, robust,
+  learns R) & cite dynamic tracking as future work. Infrastructure committed for whichever path.
 - **KEY RESEARCH FINDINGS from Step 6 (shape S7):**
   1. **Predict-then-act protocol** (precode on PREDICTED belief, per RESEARCH_PLAN Sec.5) caps AIF rate at ~51%
      of genie because served-port CSI carries aging error ((1-rho^2)beta ~ 0.19 at rho=0.9). If we instead

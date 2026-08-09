@@ -142,3 +142,47 @@ class ChannelSimulator:
         for t in range(1, T):
             out[t] = self.step()
         return out
+
+
+class MovingHotspotSimulator(ChannelSimulator):
+    """Channel with a spatial power 'sweet spot' that DRIFTS across the aperture over time.
+
+    On top of the base correlated AR(1) fading f_k(t), a deterministic spatial power envelope
+    a_n(t) is applied:  h_k(t)[n] = a_n(t) * f_k(t)[n],  with
+
+        a_n(t) = sqrt( hs_base + hs_peak * exp(-||p_n - c(t)||^2 / (2 hs_width^2)) )
+
+    and the hotspot centre c(t) moving on a circle of radius hs_radius about the aperture centre,
+    one lap every hs_period slots. This makes some ports intrinsically better (high SNR) AND makes
+    the good region MOVE, so a fixed port set decays and the agent must actively track it. The
+    agent's belief still assumes the stationary uniform-power model, so the envelope is unknown to
+    it -> it must SENSE to find where the hotspot went (the point of active inference).
+    """
+
+    def __init__(self, *args, hs_peak=1.0, hs_base=0.1, hs_width=0.25,
+                 hs_radius=0.3, hs_period=40, **kw):
+        self.hs_peak, self.hs_base, self.hs_width = hs_peak, hs_base, hs_width
+        self.hs_radius, self.hs_period = hs_radius, hs_period
+        super().__init__(*args, **kw)          # sets positions/colouring, then calls our reset()
+
+    def _envelope(self, t) -> np.ndarray:
+        c0 = self.positions.mean(axis=0)
+        ang = 2.0 * np.pi * t / self.hs_period
+        c = c0 + self.hs_radius * np.array([np.cos(ang), np.sin(ang)])
+        d2 = np.sum((self.positions - c) ** 2, axis=1)
+        return np.sqrt(self.hs_base + self.hs_peak * np.exp(-d2 / (2.0 * self.hs_width ** 2)))
+
+    def reset(self) -> np.ndarray:
+        self.t = 0
+        z = self._cn((self.K, self.N))
+        self.f = np.stack([self._Lstat[k] @ z[k] for k in range(self.K)], axis=0)   # base fading
+        self.h = self.f * self._envelope(self.t)[None, :]
+        return self.h
+
+    def step(self) -> np.ndarray:
+        z = self._cn((self.K, self.N))
+        e = np.stack([self._Linnov[k] @ z[k] for k in range(self.K)], axis=0)
+        self.f = self.rho * self.f + e
+        self.t += 1
+        self.h = self.f * self._envelope(self.t)[None, :]
+        return self.h
