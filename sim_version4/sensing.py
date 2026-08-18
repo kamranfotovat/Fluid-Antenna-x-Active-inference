@@ -107,3 +107,71 @@ def optimal_unconstrained(cov_bar, n_rf, sigma_e2, Ptot=None):
     F_opt = Ur * np.sqrt(p)[None, :]                   # scale each eigen-column
     J = float(np.sum(np.log2(1.0 + (1.0 / sigma_e2) * lam * p)))
     return J, F_opt, p
+
+
+# --------------------------------------------------------------------------- S2-4: unit-modulus optimizer
+def _egrad(F, cov_bar, c):
+    """Euclidean gradient d/dF* of ln det(I + c F^H cov_bar F) = c cov_bar F (I + c F^H cov_bar F)^{-1}.
+    (The log2 objective is this over ln2 -- an irrelevant positive scale for ascent.)"""
+    G = np.eye(F.shape[1]) + c * (F.conj().T @ cov_bar @ F)
+    return c * cov_bar @ F @ np.linalg.inv(G)
+
+
+def design_sensing_matrix(cov_bar, n_rf, sigma_e2, n_iter=300, n_restart=4,
+                          rng=None, warm_start=True, return_trace=False):
+    """Maximise J_sense = log2 det(I + sigma_e^{-2} F^H cov_bar F) over UNIT-MODULUS F (M x n_rf).
+
+    Riemannian gradient ascent on the complex-circle (torus) manifold: project the Euclidean
+    gradient onto the per-entry tangent (remove the radial part), take a backtracked step, and
+    RETRACT by exp(i*angle(.)) so |F| = 1 holds exactly at every iterate. Backtracking accepts a
+    step only if it increases J -> the objective is monotone non-decreasing (Invariant I7).
+
+    Warm-started from the phases of the unconstrained water-filling optimum (the S2-3 bound), plus
+    random unit-modulus restarts; the best restart is returned. Returns (F, J[, trace]) where
+    trace is the accepted-J history of the winning restart (for the monotonicity gate).
+    """
+    cov_bar = np.asarray(cov_bar, dtype=complex)
+    cov_bar = 0.5 * (cov_bar + cov_bar.conj().T)
+    M = cov_bar.shape[0]
+    c = 1.0 / sigma_e2
+    rng = np.random.default_rng(0) if rng is None else rng
+
+    inits = []
+    if warm_start:
+        _, F_opt, p = optimal_unconstrained(cov_bar, n_rf, sigma_e2)
+        F0 = np.exp(1j * np.angle(F_opt))              # keep the phases of the eigen-solution
+        thr = 1e-12 * max(float(p.max()), 1e-30)
+        for r in range(n_rf):                          # zero-power (unused) columns -> random phase
+            if p[r] <= thr:
+                F0[:, r] = np.exp(1j * rng.uniform(0, 2 * np.pi, size=M))
+        inits.append(F0)
+    while len(inits) < max(1, n_restart):
+        inits.append(np.exp(1j * rng.uniform(0, 2 * np.pi, size=(M, n_rf))))
+
+    bestJ, bestF, bestTr = -np.inf, None, None
+    for F in inits:
+        F = F.astype(complex)
+        J = sense_info(F, cov_bar, sigma_e2)
+        step = 1.0
+        trace = [J]
+        for _ in range(n_iter):
+            eg = _egrad(F, cov_bar, c)
+            rg = eg - np.real(eg * np.conj(F)) * F     # tangent projection on the torus
+            accepted = False
+            for _bt in range(40):                      # backtracking line search (monotone accept)
+                Fn = np.exp(1j * np.angle(F + step * rg))   # retraction -> exact unit modulus
+                Jn = sense_info(Fn, cov_bar, sigma_e2)
+                if Jn > J + 1e-12:
+                    F, J = Fn, Jn
+                    step *= 1.5
+                    accepted = True
+                    break
+                step *= 0.5
+            trace.append(J)
+            if not accepted or step < 1e-10:
+                break
+        if J > bestJ:
+            bestJ, bestF, bestTr = J, F, trace
+    if return_trace:
+        return bestF, bestJ, bestTr
+    return bestF, bestJ
