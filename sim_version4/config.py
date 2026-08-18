@@ -38,7 +38,9 @@ class OperatingPoint:
     M: int
     d_min: float | None       # min spacing (wavelengths) between activated ports; None = off
     # beamforming hardware
-    n_rf: int | None = None   # RF chains for hybrid beamforming; None = fully-digital (n_rf = M)
+    n_rf: int | None = None   # TX RF chains for hybrid beamforming; None = fully-digital (n_rf = M)
+    # sensing hardware (S2): read the M active ports through n_rf_sense mixed analog measurements
+    n_rf_sense: int | None = None   # sensing RF chains; None = S1 per-port reads (one ADC per active port)
     # scenario
     K: int = 3
     rho: float = 0.9
@@ -70,8 +72,9 @@ class OperatingPoint:
     def label(self) -> str:
         dm = "off" if self.d_min is None else f"{self.d_min:g} lambda"
         rf = "digital" if self.n_rf is None else f"n_rf={self.n_rf}"
+        sns = "per-port" if self.n_rf_sense is None else f"n_rf_sense={self.n_rf_sense}"
         return (f"N={self.N} ({self.Nx}x{self.Ny}), {self.Wx:g}x{self.Wy:g} lambda, "
-                f"K={self.K}, M={self.M}, {rf}, d_min={dm}, "
+                f"K={self.K}, M={self.M}, {rf}, sense={sns}, d_min={dm}, "
                 f"{10*np.log10(1/self.sigma2):.0f} dB, rho={self.rho}, beta_w={self.beta_w}")
 
 
@@ -93,5 +96,12 @@ OP_V2 = OperatingPoint(Nx=21, Ny=21, Wx=2.0, Wy=2.0, M=10, d_min=None)
 # only the transmit precoder is factorized into F_RF * W_BB.
 OP_V3 = OperatingPoint(Nx=21, Ny=21, Wx=2.0, Wy=2.0, M=10, d_min=None, n_rf=6)
 
-# Which one the drivers use. Flip to OP_V3 for the hybrid run.
-ACTIVE = OP_V3
+# --- version-4 sensing-through-the-analog-network point (S2) ------------------
+# Same geometry / transmit hybrid as OP_V3, but the M=10 active ports are now SENSED through
+# n_rf_sense < M mixed analog measurements (y = F_RF^H P_S h + noise) instead of one ADC per
+# active port. n_rf_sense = None recovers S1 (per-port reads) exactly (Invariant I1). The agent
+# DESIGNS the unit-modulus sensing combiner F_RF to maximize information gain about its belief.
+OP_V4 = OperatingPoint(Nx=21, Ny=21, Wx=2.0, Wy=2.0, M=10, d_min=None, n_rf=6, n_rf_sense=6)
+
+# Which one the drivers use. Flip to OP_V4 for the S2 sensing run.
+ACTIVE = OP_V4
