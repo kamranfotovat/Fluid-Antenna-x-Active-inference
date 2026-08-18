@@ -51,14 +51,16 @@ class AIFAgent:
         self.S_prev = None
         return self
 
-    def select(self, first: bool):
+    def select(self, first: bool, n_rf_sense=None):
+        """Greedy EFE port selection on the predicted belief. If n_rf_sense is given, the epistemic
+        term values COMPRESSED sensing info (S2-6 sensing-aware selection) instead of full per-port."""
         if not first:
             self.bel.predict()                      # aging
         return efe.greedy_select(
             self.bel, self.M, S_prev=self.S_prev,
             alpha=self.alpha, beta=self.beta_w, eta_sw=self.eta_sw, e_sw=self.e_sw,
             sigma2=self.sigma2, P=self.P,
-            positions=self.positions, d_min=self.d_min)
+            positions=self.positions, d_min=self.d_min, n_rf_sense=n_rf_sense)
 
     def precoder(self, S):
         """Belief-based robust-MMSE digital precoder F* (M x K). If n_rf is set, F* is the
@@ -123,7 +125,7 @@ def run_aif(agent: AIFAgent, H, sigma_e2, rng, track_belief=False, sense_first=F
 
 
 def run_aif_s2(agent: AIFAgent, H, sigma_e2, rng, n_rf_sense, sense_mode="designed",
-               track_belief=True):
+               sense_aware_select=False, track_belief=True):
     """S2 closed loop -- sense the M active ports THROUGH the analog network (observe-then-precode).
 
     Each slot: predict -> greedy EFE select S -> read the M active ports with a sensing budget of
@@ -145,8 +147,19 @@ def run_aif_s2(agent: AIFAgent, H, sigma_e2, rng, n_rf_sense, sense_mode="design
     d_rng = np.random.default_rng(12345)                  # restarts for the sensing-matrix design
     rate = np.zeros(T); switch = np.zeros(T)
     info = np.zeros(T); post_var = np.zeros(T); real_err = np.zeros(T)
+    # S2-6 selection epistemic: None -> S1 per-user full-read; a budget k -> compressed info bound.
+    #   sense_aware_select True  -> budget-aware, sel_nrs = n_rf_sense
+    #                       "full"-> same aggregate objective but budget-UNAWARE (sel_nrs = M), the
+    #                                clean same-scale control for the aware-vs-unaware comparison
+    #                       False -> the ordinary S1 selector
+    if sense_aware_select == "full":
+        sel_nrs = agent.M
+    elif sense_aware_select:
+        sel_nrs = n_rf_sense
+    else:
+        sel_nrs = None
     for t in range(T):
-        S = agent.select(first=(t == 0))                  # predict (t>0) + greedy on predicted belief
+        S = agent.select(first=(t == 0), n_rf_sense=sel_nrs)   # predict (t>0) + greedy on belief
         idx = list(S); M = len(idx)
         nrs = M if (n_rf_sense is None or sense_mode == "perport") else int(min(n_rf_sense, M))
         cov_bar = np.sum(efe.active_covs(agent.bel, S), axis=0)   # PREDICTED aggregate uncertainty

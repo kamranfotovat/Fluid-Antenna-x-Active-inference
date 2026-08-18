@@ -102,6 +102,23 @@ def epistemic_value(bel, S, return_per_user=False):
     return (float(vals.sum()), vals) if return_per_user else float(vals.sum())
 
 
+def epistemic_value_compressed(bel, S, n_rf_sense) -> float:
+    """S2 epistemic value when the active ports are SENSED THROUGH the analog network with only
+    n_rf_sense mixed reads (S2-6). The most a compressed measurement can learn about the aggregate
+    active-port channel is the water-filling bound over the top-n_rf_sense eigen-directions of
+    Sigma_bar_S = sum_k Cov_k (the achievable unit-modulus design reaches 94-100% of it, S2-4), so
+    this is a tight, fast (O(M^3)) proxy for the realizable sensing info. It replaces the full
+    per-port epistemic when sensing is compressed, making selection AWARE that uncertainty living
+    in more than n_rf_sense dimensions cannot all be resolved this slot."""
+    from sensing import optimal_unconstrained
+    idx = list(S); M = len(idx)
+    if M == 0:
+        return 0.0
+    cov_bar = np.sum([bel.Sigma[k][np.ix_(idx, idx)] for k in range(bel.K)], axis=0)
+    J, _, _ = optimal_unconstrained(cov_bar, min(int(n_rf_sense), M), bel.sigma_e2)
+    return float(J)
+
+
 # --------------------------------------------------------------------------- (3) switching cost
 def switching_cost(S, S_prev, eta_sw=1.0, e_sw=1.0) -> float:
     """eta_sw * e_sw * |S XOR S_prev| (symmetric difference = number of ports changed)."""
@@ -131,7 +148,8 @@ def _switch_marginal(n, S_prev_set, eta_sw, e_sw) -> float:
 
 
 def greedy_select(bel, M, S_prev=None, alpha=1.0, beta=1.0, eta_sw=1.0, e_sw=1.0,
-                  sigma2=1e-3, P=1.0, positions=None, d_min=None, return_trace=False):
+                  sigma2=1e-3, P=1.0, positions=None, d_min=None, return_trace=False,
+                  n_rf_sense=None):
     """Greedily build S (|S|=M) minimising G(S) = -alpha*prag -beta*epis +switch, i.e.
     maximising J(S) = alpha*prag + beta*epis - switch. Each step adds the port with the
     largest marginal J. O(N*M) objective evaluations. The epistemic part is monotone
@@ -158,15 +176,17 @@ def greedy_select(bel, M, S_prev=None, alpha=1.0, beta=1.0, eta_sw=1.0, e_sw=1.0
         for n in pool:
             cand = tuple(A + [n])
             prag_c = pragmatic_value(bel, cand, sigma2, P)
-            epis_c = epistemic_value(bel, cand)
+            epis_c = (epistemic_value_compressed(bel, cand, n_rf_sense)
+                      if n_rf_sense is not None else epistemic_value(bel, cand))
             marg = (alpha * (prag_c - prag_A) + beta * (epis_c - epis_A)
                     - _switch_marginal(n, prev_set, eta_sw, e_sw))
             if np.isfinite(marg) and marg > best[0]:
                 best = (marg, n, prag_c, epis_c)
         if best[1] is None:                          # all marginals tied/degenerate -> take any feasible
             n_star = min(pool)
-            best = (0.0, n_star, pragmatic_value(bel, tuple(A + [n_star]), sigma2, P),
-                    epistemic_value(bel, tuple(A + [n_star])))
+            epis_star = (epistemic_value_compressed(bel, tuple(A + [n_star]), n_rf_sense)
+                         if n_rf_sense is not None else epistemic_value(bel, tuple(A + [n_star])))
+            best = (0.0, n_star, pragmatic_value(bel, tuple(A + [n_star]), sigma2, P), epis_star)
         _, n_star, prag_A, epis_A = best
         A.append(n_star); remaining.remove(n_star)
         trace.append((n_star, best[0]))
