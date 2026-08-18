@@ -26,6 +26,7 @@ from precoding import mmse_precoder, sinr_and_rates
 from selection import select_greedy, select_topM_feasible, select_random_feasible
 from channel import feasible_ports
 from hybrid import hybridize
+from sensing import observation_matrix, sense, design_sensing_matrix, sense_info
 import efe
 
 
@@ -116,6 +117,72 @@ def run_aif(agent: AIFAgent, H, sigma_e2, rng, track_belief=False, sense_first=F
         else:
             agent.update(S, y)                       # precode-then-observe: update belief now
     out = dict(rate=rate, switch=switch)
+    if track_belief:
+        out.update(post_var=post_var, real_err=real_err)
+    return out
+
+
+def run_aif_s2(agent: AIFAgent, H, sigma_e2, rng, n_rf_sense, sense_mode="designed",
+               track_belief=True):
+    """S2 closed loop -- sense the M active ports THROUGH the analog network (observe-then-precode).
+
+    Each slot: predict -> greedy EFE select S -> read the M active ports with a sensing budget of
+    n_rf_sense measurements -> Kalman-update (general A) -> transmit-hybrid precode from the fresh
+    belief -> score realized rate. Selection and transmit are IDENTICAL to S1; only the sensing
+    read changes with `sense_mode`:
+
+      'designed' -- n_rf_sense EFE-designed unit-modulus analog combinations of all M active ports
+                    (design_sensing_matrix on the predicted aggregate covariance)          [S2]
+      'random'   -- n_rf_sense random unit-modulus combinations                       [ablation]
+      'subset'   -- read the n_rf_sense highest-variance individual active ports  [S1 @ same budget]
+      'perport'  -- read all M active ports individually (n_rf_sense ignored)  [S1 full-read ceiling]
+
+    Returns per-slot rate, switch, and (optional) belief-quality traces (post_var, real_err) on the
+    served ports at the moment the precoder is built.
+    """
+    T, K, N = H.shape
+    agent.reset()
+    d_rng = np.random.default_rng(12345)                  # restarts for the sensing-matrix design
+    rate = np.zeros(T); switch = np.zeros(T)
+    info = np.zeros(T); post_var = np.zeros(T); real_err = np.zeros(T)
+    for t in range(T):
+        S = agent.select(first=(t == 0))                  # predict (t>0) + greedy on predicted belief
+        idx = list(S); M = len(idx)
+        nrs = M if (n_rf_sense is None or sense_mode == "perport") else int(min(n_rf_sense, M))
+        cov_bar = np.sum(efe.active_covs(agent.bel, S), axis=0)   # PREDICTED aggregate uncertainty
+
+        if sense_mode in ("designed", "random"):
+            if sense_mode == "designed":
+                F_RF, _ = design_sensing_matrix(cov_bar, nrs, sigma_e2, rng=d_rng)
+            else:
+                F_RF = np.exp(1j * d_rng.uniform(0, 2 * np.pi, size=(M, nrs)))
+            info[t] = sense_info(F_RF, cov_bar, sigma_e2)  # bits of info this measurement carries
+            y = sense(H[t], F_RF, S, sigma_e2, rng)        # (K, nrs) mixed reads
+            agent.bel.update_general(observation_matrix(F_RF, S, N), y)
+        else:                                              # per-port reads (subset or full)
+            if sense_mode == "subset" and nrs < M:
+                var_agg = agent.bel.port_variances()[:, idx].sum(axis=0)   # (M,) predicted variance
+                loc = list(np.argsort(var_agg)[::-1][:nrs])   # highest-uncertainty active ports
+            else:
+                loc = list(range(M))
+            read = [idx[j] for j in loc]
+            F_sel = np.zeros((M, len(loc)), dtype=complex)     # equivalent selection "combiner"
+            F_sel[loc, range(len(loc))] = 1.0
+            info[t] = sense_info(F_sel, cov_bar, sigma_e2)
+            yb = H[t][:, read] + np.sqrt(sigma_e2 / 2) * (
+                rng.standard_normal((K, len(read))) + 1j * rng.standard_normal((K, len(read))))
+            agent.bel.update(tuple(read), yb)
+
+        if track_belief:
+            served = idx[:K]
+            post_var[t] = agent.bel.port_variances()[:, served].mean()
+            real_err[t] = np.mean(np.abs(H[t][:, served] - agent.bel.mu[:, served]) ** 2)
+        W = agent.precoder(S)                              # transmit hybrid from the FRESH belief
+        Ht = H[t][:, idx].T
+        rate[t] = float(sinr_and_rates(Ht, W, agent.sigma2)[1].sum())
+        switch[t] = _switch_count(S, agent.S_prev)
+        agent.S_prev = S
+    out = dict(rate=rate, switch=switch, info=info)
     if track_belief:
         out.update(post_var=post_var, real_err=real_err)
     return out
