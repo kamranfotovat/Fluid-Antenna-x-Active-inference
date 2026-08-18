@@ -10,6 +10,61 @@ robust to Doppler & model mismatch; learns R). The two extensions below are the 
 
 ---
 
+## 0. Paper scope map — S1 (this letter) vs S2 (next paper)
+
+The single decision that organizes the whole roadmap: **where does the RF-chain budget bite, and does the
+agent design its own measurement operator?** This splits into two papers.
+
+| Axis | **S1 — THIS paper (done)** | **S2 — next paper (designed, not built)** |
+|---|---|---|
+| Name | "sense-per-port, transmit-hybrid" active **acquisition** | "sense-through-the-analog-network" active **sensing** |
+| Sensing observation | `y = P_S h + n` — per-port pilot reads on the activated ports | `y = F_RF^H h + n` — N_RF **mixed/compressed** reads through the analog net |
+| Belief / Kalman | linear-Gaussian, obs matrix = selection `P_S` | linear-Gaussian, obs matrix = combiner `F_RF^H` — **same engine**, swap the matrix |
+| Epistemic EFE term | depends only on **which discrete ports** S: `logdet(I+Σ_S/σ_e²)` | depends on the **continuous analog weights**: `logdet(I+F_RF^H Σ F_RF/σ_e²)` |
+| What the agent controls | *which ports* to activate (discrete) | *which ports* **+ how to combine them for sensing** (discrete + continuous manifold) |
+| Transmit | hybrid `F_RF W_BB` factorization of belief precoder (version 3, done) | same, but sensing-`F_RF` and transmit-`F_RF` now **compete** (explore/exploit in the analog domain) |
+| Extra machinery vs S1 | — | a **unit-modulus manifold optimizer** inside the EFE loop; a sensing-vs-transmit `F_RF` schedule |
+| Feedback needed | partial CSI on M activated ports | even LESS — N_RF mixed numbers (a selling point) |
+| Novelty | solid, self-contained (AIF acquisition + hybrid transmit under partial CSI) | **medium** in discrete form (overlaps active-sensing lit — Sohrabi/Chen/Yu JSAC'22), **HIGH** in the continuous/movable limit (§2e) = active *spatial sampling* |
+| Status | **COMPLETE & validated** (`sim_version3/`, `results_v3.md`) | scoped only — Kalman unchanged is the key de-risker |
+
+**Decision rule for what belongs where:** S1 assumes the sensing hardware can read the activated ports
+(time-multiplexed pilots, ⌈M/N_RF⌉ sub-slots) — the RF budget bites only at *transmission*. The moment we
+say the RF budget bites at *sensing too* (single-shot compressed reads) and let the agent **choose the
+combiner to maximize information gain**, we are in S2. S2 is where "active inference" becomes literal — the
+agent designs its own perception. **Ship S1; make S2 (ideally its continuous form, §2e) the flagship
+follow-up.**
+
+**S2 is not one thing — it has three complexity tiers.** Pick deliberately; the effort and novelty scale
+steeply. The key de-risker across all three: the model stays **linear-Gaussian**, so the Kalman engine is
+untouched — what changes is the *action space* (continuous analog weights) and the *optimizer inside the EFE
+loop*. It is a new action space, not a new inference engine.
+
+  - **Light-S2 (~1–2 weeks) — design the sensing combiner on a FIXED active set.** Keep discrete port
+    selection as-is; add one step that picks `F_RF` to maximize `logdet(I + F_RF^H Σ F_RF/σ_e²)`. Unconstrained
+    the optimum is closed-form (align `F_RF` with the top eigenvectors of Σ — water-filling on *uncertainty*);
+    with the unit-modulus constraint there is no closed form ⇒ add a small **manifold / coordinate-descent
+    optimizer** (same spirit as the AltMin already in `hybrid.py`). Kalman unchanged. Deliverable: one figure,
+    "EFE-designed sensing beams beat fixed per-port sensing by X%." This is the optional S1-hardening figure —
+    but be aware the gain may be modest and it invites the "this is just known info-max active sensing" comparison.
+  - **Medium-S2 (~a month) — jointly choose port-connections AND the combining weights.** The agent optimizes
+    a continuous matrix *inside* the greedy selection loop; compute grows (a continuous optimization nested in
+    the discrete one, roughly 10–50× the per-slot cost — starts to matter at N=441).
+  - **Full-S2 (a whole second paper) — sensing AND transmit share the analog network under EFE.** The real
+    research problem: the `F_RF` best for *sensing* (spread beams to probe uncertainty) is **not** the `F_RF`
+    best for *transmission* (focus energy on known-good directions). That explore/exploit tension now lives in
+    the **analog domain**, across a shared coherence block — resolve it via two configs (pilot vs data
+    sub-slot), one compromise config, or a schedule. Likely needs a manifold or learning-based solver. This is
+    the flagship; strongest in the **continuous / movable-antenna limit** (§2e), where it becomes *active
+    spatial sampling* — genuinely FAS-native and differentiated from the mmWave active-sensing crowd.
+
+Novelty caution (applies to all tiers): the *mechanism* — max-mutual-information measurement design — is NOT
+new (Bayesian D-optimal experiment design; Sohrabi/Chen/Yu "Active Sensing for Communications by Learning,"
+JSAC 2022). Our delta is the **EFE framing that unifies port-selection + sensing-beam design + precoding +
+switching cost in a FAS setting** — a medium-strength "novel combination," strongest in the continuous limit.
+
+---
+
 ## 1. Dynamic tracking — the moving-power-envelope belief (Path A)
 
 **Why:** In the standard FAS model every port has equal average power (Jakes, unit-diagonal R), so the
@@ -138,14 +193,70 @@ on; do NOT claim to beat it on estimation. (See also the LMMSE estimator, Skouro
 — sequential LMMSE + pick-strongest = essentially our `naive` baseline + a stochastic-geometry outage analysis;
 we beat its selection heuristic, cite its analysis.)
 
-## 4. Physical (distance-weighted) switching cost
+## 4. Physical (distance-weighted) switching cost  →  superseded by the transport-cost view in §6
 
 Currently switching cost = number of ports changed, |S XOR S_prev|. But the fluid-antenna moving delay is
 proportional to the DISTANCE moved (Eq. 2 of the IDET paper: tau ∝ |i-j|). A **distance-weighted** switching
 cost would make SMALL exploratory moves cheap and large jumps expensive -> the agent could sense/track nearby
 ports almost for free, potentially shifting the whole rate/switching Pareto frontier up (esp. relevant for the
 moving-hotspot tracking in §1, where cheap local moves = cheap tracking). Worth modelling and re-running the
-frontier.
+frontier. **NOTE:** in 2D with multiple moving elements this is not a scalar per-port weight but a *matching*
+cost — see §6, which is the principled version of this idea.
+
+## 6. Physical realization — pixel/RF-switching vs liquid-metal, and the optimal-transport switching cost
+
+**The distinction (user, 2026-08-18).** There are two physically different ways to build a FAS, and they are
+*different research objects*, not the same model with a tweaked cost:
+
+  - **Pixel / RF-switching FAS (what S1 assumes).** A fixed grid of N candidate ports (radiating pixels);
+    M RF chains connect to a chosen subset via switches. "Moving" = electronically re-energizing a different
+    port — **no mass travels**. Activation is a *set* S; the RF chains are interchangeable, so **there is no
+    "which antenna goes where" question** — any chain can drive any activated port. Switching cost ≈ number
+    of ports toggled. This is the dominant FAS model (Wong et al.; reconfigurable-pixel antennas) and all our
+    baselines (DRL, bandit, LMMSE) live here.
+  - **Liquid-metal / movable FAS (the "literal fluid" model).** A small number of *physical* radiators —
+    liquid-metal blobs (EGaIn/galinstan) pumped through microchannels, or mechanically movable antennas (MA)
+    on rails — that **physically translate** to new positions. Now "moving" has a real continuous trajectory
+    and a travel cost **∝ distance**. This is the model behind the 1D "pace/distance/time" framing the user
+    saw (IDET τ ∝ |i−j|; the movable-antenna line, Zhu/Ma/Zhang).
+
+**The user's key observation is correct and is the crux.** In the liquid/MA model, when the M physical
+elements move from configuration `P_prev = {p_1..p_M}` to `P_new = {q_1..q_M}`, the reconfiguration cost is
+**not** a port-toggle count — it is the total physical travel, which requires **matching** old positions to
+new ones ("should the element at a go to c or to d?"). Minimising the summed travel over all matchings is
+exactly the **linear assignment problem / discrete optimal transport (1-Wasserstein / earth-mover distance)**:
+```
+    C_switch(P_prev → P_new) = min over matchings π  Σ_i dist(p_i, q_{π(i)})
+```
+Good news the user was unsure about: the clean version is **NOT combinatorially hard** — identical,
+interchangeable elements ⇒ min-cost bipartite matching, solved EXACTLY by the **Hungarian algorithm in
+O(M³)** (instant for M=5–10). It only becomes hard (NP-hard, multi-agent path-finding / motion planning) if
+we add **collision avoidance / no-crossing / shared-channel constraints** — which is itself a legitimate,
+novel sub-problem to own. The distance metric is a hardware choice: Euclidean (free 2D motion), Manhattan
+(X-then-Y rails), or geodesic on a microchannel graph (confined fluid).
+
+**Why this is valuable — and where it belongs.** This upgrades the ad-hoc "distance-weighted" idea of §4 into
+a *principled* switching cost with the right mathematical object (optimal transport), and it plugs straight
+into EFE: replace the `|S XOR S_prev|` switching term with `C_switch` above. Consequences:
+  - small **local** moves become cheap ⇒ the agent tracks/explores nearby ports almost for free ⇒ directly
+    strengthens the moving-hotspot tracking story (§1) and reshapes the rate/switching Pareto frontier;
+  - it is the natural bridge to the **continuous movable-antenna / GP-over-aperture limit** (§2e, §3):
+    discrete ports → transport/assignment cost → continuous positioning with **gradient** EFE. Liquid is the
+    *physical narrative* that unifies the entire discrete-FAS ↔ continuous-MA roadmap;
+  - a fresh contribution nobody in the AIF-FAS space has: **"EFE port selection with an optimal-transport
+    switching cost for physically-moving FAS,"** and its multi-element assignment/trajectory sub-problem.
+
+**Does the multi-element moving-fluid setup physically exist?** Partly. Single liquid-metal reconfigurable
+antennas are demonstrated in the lab; multi-element MA arrays on 2D rails exist as a research concept; but
+*many* independent liquid radiators sliding fast over a 2D surface simultaneously is at/beyond the current
+hardware frontier — so treat it as an **idealized-but-legitimate model**, stated honestly as such.
+
+**RECOMMENDATION.** Keep S1 **pixel-based** — it is done, coherent, matches every baseline and reviewer
+expectation, and the acquisition story is hardware-agnostic; switching mid-stream would force re-deriving and
+re-running everything for no gain to the current claim. Adopt the **liquid-metal / physical-motion** model as a
+*defining feature of a future paper*, where the transport-cost switching + the multi-element assignment
+(Hungarian → collision-aware planning) + the continuous-MA limit become the contribution. It composes cleanly
+with either S1 or S2 but is most naturally the journal-scale "physical motion" version. This subsumes §4.
 
 ## 5. Other extensions (parking lot)
   - Multi-step (planning) EFE instead of myopic one-slot selection (RESEARCH_PLAN Sec. 7).
