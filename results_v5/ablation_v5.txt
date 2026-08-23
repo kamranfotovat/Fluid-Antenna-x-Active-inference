@@ -1,0 +1,35 @@
+OP_B: N_t=10 cols x N_p=21 ports (N=210), pitch=0.1λ, col_spacing=0.333λ, footprint 3.00x2.00λ, M=10, Δmax=7, d_min=0.5λ, K=3, ρ=0.9, β_w=0.25, η_mv=0.5
+MC=4, T=24, second-half slots
+
+============================================================
+(a) exploiting cross-column correlation:  B (full R) vs A (block R)
+============================================================
+Delta_max |  model |    rate |   move |     obj |  %genie
+--------------------------------------------------------
+        2 |      B |  18.644 |   0.23 |  18.529 |    84.8
+        2 |      A |  18.882 |   1.10 |  18.330 |    85.9
+          -> B-minus-A objective at Delta_max=2: +0.199
+
+        7 |      B |  18.549 |   0.25 |  18.424 |    84.4
+        7 |      A |  18.949 |   1.03 |  18.434 |    86.2
+          -> B-minus-A objective at Delta_max=7: -0.009
+
+============================================================
+(b) cost of one-droplet-per-column:  B vs S1-free (unconstrained) vs genie
+============================================================
+    method |    rate |  %genie
+--------------------------------
+     genie |  21.988 |   100.0
+   S1-free |  19.355 |    88.0
+   B (col) |  18.549 |    84.4
+
+Gates:
+  [PASS] I6  B_obj > A_obj at Delta_max=2 (cross-column correlation helps)   gap@2=+0.199
+  [FAIL] I6  B_obj > A_obj at Delta_max=7 (cross-column correlation helps)   gap@7=-0.009
+  [PASS]     benefit is pervasive: B moves less than A (decisive vs blind)   move B=0.25 vs A=1.03
+  [PASS]     B captures >= 85% of S1-free rate (cheap hardware)   95.8%
+  [PASS]     B rate <= genie
+
+============================================
+V5-5 GATE G5: FAILURES ABOVE  (436s)
+============================================
