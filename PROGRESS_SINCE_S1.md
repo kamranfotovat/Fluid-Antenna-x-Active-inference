@@ -371,14 +371,22 @@ actual pain point — 3 of the 7 related papers (§3) are about FAS channel-esti
 
 ### The headline claim
 
+**CONFIRMED at the actual paper configuration** (`verify_paper1_config.py`, MC=6, T=40, **hybrid
+n_rf=6**, N=441, K=3 — `results_tm/paper1_config.txt`, ALL PASS):
+
 | config | pilots | rate | % genie |
 |---|---|---|---|
-| m=10, AR(1) — *current* Paper 1 | 100% | 18.337 | 82.9% |
-| **m=6, AR(4)** — *proposed* | **60%** | **18.477** | 83.5% |
+| m=10, AR(1) — *current* Paper 1 | 100% | 18.382 | 82.8% |
+| **m=6, AR(4)** — *proposed* | **60%** | **18.645** | **84.0%** |
+| m=6, AR(1) — partial sensing *alone* | 60% | 16.185 | 72.9% |
 
-**Equal rate on 40% fewer pilots.** Partial sensing alone at m=6 *loses* ~10 points of genie
-(82.9% → 72.7%); **the temporal model is what buys it back.** That is why the two must ship
-together — splitting them across papers weakens both.
+**Slightly BETTER rate on 40% fewer pilots (+0.263).** Partial sensing alone at m=6 *loses* ~10
+points of genie (82.8% → 72.9%); **the temporal model is what buys it back.** That is why the two
+must ship together — splitting them across papers weakens both.
+
+**Hybrid is free — measured, not assumed.** |digital − hybrid| ≤ **0.001** at *every* pilot budget
+(m=4/6/8/10), confirming n_rf = 2K is digital-exact right through the belief-based precoder and the
+belief-inferred un-piloted ports.
 
 ### Hardware story — get the two 6's right
 
@@ -409,6 +417,16 @@ answering the sensor-selection objection with an argument rather than a result.
 
 ### Status
 
-`verify_paper1_config.py` runs the actual paper configuration (partial sensing × AR order × **hybrid
-n_rf=6**) — the first time partial sensing and hybrid have been simulated together. Smoke test:
-hybrid is **exactly** digital at n_rf=2K. → `results_tm/paper1_config.txt`.
+`verify_paper1_config.py` — the actual paper configuration (partial sensing × AR order × **hybrid
+n_rf=6**), the first time partial sensing and hybrid have been simulated together. **ALL PASS at
+MC=6** (`results_tm/paper1_config.txt`). The headline table above is that run.
+
+**Recommended framing (see the hardware caveat above): lead with PILOT OVERHEAD, not RF chains.**
+"40% fewer pilots at equal rate" is measured in pilot symbols and holds regardless of which analog
+network is built; the RF-chain implication is a secondary consequence. That keeps the switch- vs
+phase-shifter architecture question off the critical path.
+
+**Remaining for the write-up:** the temporal model has no text yet; Paper 1's figures need
+regenerating at the hybrid operating point; and the online-Doppler-learning result (§6.3, 83%
+recovery) still needs a decision on whether it goes in Paper 1 as well or is held back — it is a
+*second* contribution on top of the pilot reduction and may overstuff a letter.

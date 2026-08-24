@@ -1,0 +1,45 @@
+PAPER-1 CONFIGURATION CHECK
+MC=6, T=40, fd=0.1, m_sense sweep [4, 6, 8, 10]
+
+  digital (OP_V2): N=441 (21x21), 2x2 lambda, K=3, M=10, digital, d_min=off, 15 dB, rho=0.9, beta_w=0.25
+  hybrid  (OP_V3): N=441 (21x21), 2x2 lambda, K=3, M=10, n_rf=6, d_min=off, 15 dB, rho=0.9, beta_w=0.25
+  n_rf = 6 = 2K = 6 -> digital-exact threshold
+
+--- hybrid (OP_V3, n_rf=6) ---
+    [hybrid] seed 0 done (260s)
+    [hybrid] seed 1 done (757s)
+    [hybrid] seed 2 done (1201s)
+    [hybrid] seed 3 done (1465s)
+    [hybrid] seed 4 done (1769s)
+    [hybrid] seed 5 done (2035s)
+--- digital (OP_V2, reference) ---
+    [digital] seed 0 done (244s)
+    [digital] seed 1 done (484s)
+    [digital] seed 2 done (715s)
+    [digital] seed 3 done (934s)
+    [digital] seed 4 done (1161s)
+    [digital] seed 5 done (1388s)
+
+ m_sense |  pilots |  HYBRID AR(1) |  HYBRID AR(4) |  DIGITAL AR(4) |  hybrid loss |  % genie
+------------------------------------------------------------------------------------------------
+       4 |     40% |        14.130 |        14.691 |         14.692 |       +0.001 |    66.2%
+       6 |     60% |        16.185 |        18.645 |         18.645 |       +0.000 |    84.0%
+       8 |     80% |        17.333 |        19.784 |         19.784 |       -0.000 |    89.1%
+      10 |    100% |        18.382 |        20.243 |         20.243 |       +0.000 |    91.2%
+   genie |         |               |        22.194 |         22.194
+
+==============================================================================
+CURRENT Paper 1 : m_sense=10 (100% pilots), AR(1), hybrid -> 18.382
+PROPOSED        : m_sense=6 ( 60% pilots), AR(4), hybrid -> 18.645
+                  => +0.263 rate on 40% FEWER pilots
+==============================================================================
+
+Gates:
+  [PASS] hybrid n_rf=2K is free at EVERY pilot budget (|loss| < 0.5)   max |digital - hybrid| = 0.001
+  [PASS] HEADLINE: 60% pilots + AR(4) >= 100% pilots + AR(1)   18.645 vs 18.382 (+0.263)
+  [PASS] temporal model helps at reduced pilot budgets   m=6: AR(1) 16.185 -> AR(4) 18.645
+  [PASS] and the saving is real (m=6 AR(1) alone would LOSE rate)   m=6 AR(1) 16.185 < full-pilot AR(1) 18.382 -> the temporal model is what buys it back
+
+==============================================================================
+PAPER-1 CONFIG: ALL PASS (3422s)
+==============================================================================
