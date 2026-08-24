@@ -4,7 +4,7 @@ This documents everything explored **after Paper 1 (S1)** was in good shape, so 
 (here or on another machine) can understand the current state and decisions without re-deriving them.
 Read `PROJECT_STATUS.md` first for the original S1 project; this file continues from there.
 
-Last updated: 2026-08-23.
+Last updated: 2026-08-24.
 
 ---
 
@@ -21,6 +21,18 @@ Across ~6 independent experiments we established a **unifying fact**:
 Important nuance that PROTECTS Paper 1: this applies to **model**-information (the correlation R),
 NOT **state**-information. The **state-epistemic / exploration term is load-bearing** (S1 ablation:
 62.6% → 83.5% of genie). Only the *R-learning* extension dies under observe-then-precode.
+
+### ⚠️ Second, sharper fact (added 2026-08-24) — read this before building anything on §5
+
+The statement above is about **which protocol**. There is a second axis — **which model** — and it
+turned out to matter more:
+
+> **Learning pays in the TEMPORAL domain (Doppler / AR dynamics), NOT the spatial one (R).**
+
+Wrong spatial R costs ≈ 0–0.6 in rate; wrong temporal model costs **+11.3 at full scale**. The whole
+§5 negative result is real but it was aimed at the wrong parameter. §6 is the positive counterpart
+and is now the main line of the post-S1 work. If you are picking this project up, **§6 supersedes
+the "learning doesn't pay" mood of §5 and §0**.
 
 ---
 
@@ -129,20 +141,138 @@ Findings:
 **Conclusion:** active R-learning is not viable under observe-then-precode (state-info matters,
 model-info doesn't). Paper 1 unaffected. R-learning's only home = predict-then-precode / partial sensing.
 
+**Postscript (2026-08-24):** we later tested that "only home" directly. In partial sensing, *having*
+a reasonable spatial model is essential (Jakes-R vs identity-R ≈ **+5 to +7**, roughly doubles rate),
+but R **accuracy** — what learning actually buys over a good fixed prior — is worth only **+0.6**
+(`verify_partial_mismatch.py`), and part of that is the same transient. So R-learning is dead in all
+three regimes. A fixed Jakes prior suffices. **The lever is temporal, not spatial → §6.**
+
 ---
 
-## 6. Open decisions / next steps
+## 6. Partial sensing + the TEMPORAL model (`sim_version3`, TM-0..TM-5) — the positive result
+
+This is where the post-S1 work actually landed. Two banked wins.
+
+### 6.1 Partial sensing (`partial_sense.py`, `verify_partial.py`) — a real pilot-savings result
+
+Serve M ports, pilot only `m_sense < M` of them fresh, precode all M from the belief (fresh on
+piloted, R-inferred on the rest). Graceful curve, unlike predict-then-precode's cliff:
+`m_sense=4 → 78%`, `6 → 87%`, `8 → 94%` of full-pilot rate. Spatial inference is essential here
+(see §5 postscript). *(Gotcha fixed: `y` must be built in the SAME port order `bel.update` uses —
+sort `S_sense`, or the port↔measurement association is scrambled.)*
+
+### 6.2 Why predict-then-precode was bad, and the fix
+
+Under AR(1) the effective CSI error when precoding from a *predicted* belief is `(1−ρ²)β ≈ 0.19β`
+at ρ=0.9, vs `σ_e² = 0.001β` — **190× worse**. That aging floor is temporal; no amount of R-learning
+touches it. Fix: make the channel **predictable**. Truth = band-limited **Jakes** sum-of-sinusoids
+(`r(τ) = J₀(2π f_D T_s τ)`, normalized-Doppler knob); belief = **AR(p)** via Yule-Walker, space-time
+separable (temporal AR(p) ⊗ spatial R).
+
+- **TM-0/TM-1a** — AR(4) cuts 1-step prediction error **20×** with realistic pilot noise
+  (0.186 → 0.009 at f_D T_s = 0.10). *(Noiseless figures overstate this — quote the noisy one.)*
+- **TM-2** (`st_belief.py` `STKalmanBelief`, exact AR(p) space-time filter) — AR(1) ≡ the old model
+  exactly (invariant). AR(4) helps **every** protocol, most in predict.
+
+### 6.3 Learning the Doppler online — and the TM-3 story that TM-4 OVERTURNED
+
+**Do not build on TM-3's explanation.** TM-3 got 79% recovery but via two hand-tuned constants
+(`r_shrink=0.95`, `ev_inflate=3.0`) and a **wrong diagnosis** (claimed survivorship bias in the
+autocorrelation estimate). TM-4 disproved it:
+
+1. Not survivorship — a uniformly random, belief-independent probe port shows the *same* bias.
+2. Not the generator — its realized ACF is 0.9023 vs J₀'s 0.9037.
+3. It *is* a **ratio bias**: fed every port the estimator is exact, but under sparse sensing
+   `r̂ = A/B` pools numerator and denominator over *different* sample sets, and with a
+   time-correlated channel n_eff = number of coherent windows (~36), so Jensen inflates `E[A/B]` by
+   ≈ r/n_eff ≈ 0.025. **Matched-window normalization** (normalize each lag by its own pairs' power)
+   removes 93% of it.
+4. **But de-biasing alone made rate WORSE** — so bias was never the mechanism.
+
+**The real mechanism is ill-conditioned Yule-Walker.** At f_D T_s = 0.10 the Jakes ACF is smooth:
+`cond(Γ) = 3e4`, `ev = 1.6e-4`, `|a|₁ = 13.1`. A 0.01 ACF error yields coefficients whose *actual*
+1-step error variance is **17.2** while plain YW still reports 0.18 — **94× overconfident**. The
+Kalman then trusts a stale prediction and the rate craters. (One seed crashed Levinson outright:
+`Singular principal minor`.) *That* is what the two constants were secretly compensating for.
+
+**Principled fix = data-driven AR ORDER SELECTION** (`temporal.ar_from_acf_robust`): bootstrap
+`r ~ N(r̂, diag(se²))`, refit each order, score by the error it *actually* incurs; ridge `δ = Σse²`;
+process noise = the posterior-predictive error. **Zero tuned constants** — everything keys off the
+estimator's own Bartlett standard errors.
+
+### 6.4 TM-5 — "information buys model order" is FALSE; the true story is better
+
+Hypothesis failed: selected order went **2.67 → 2.00** as data grew (down, not up). Arithmetic:
+order 4 only wins once `se(1) ≲ 0.005`, and `se ~ √((1+2r²)/n)` with `n ~ T·M·K` needs **T ≈ 7000
+slots**. So **a learner can never afford AR(4) in this regime — AR(2) is the practical ceiling.**
+
+That is fine, because **closed-loop rate saturates long before prediction error does** (σ_e² and
+multiuser interference dominate the last decade): AR(2)-oracle = **92.9%** of AR(4)-oracle. The
+learner reaches **97.8% of the AR(4) oracle using only q≈2**. What information buys is *coefficient
+accuracy at a low safe order*; the selector's **refusal** to buy an unaffordable order is the safety
+mechanism — **forcing p=4 craters at every horizon (2.2–6.5)**.
+
+> **Consequence for the paper:** TM-2's headline AR(4) numbers are *oracle* results. Quote the
+> learner-achievable figures, not the oracle ones.
+
+### 6.5 Full scale (N=441) — enabled by an EXACT reduced-rank filter
+
+`st_belief_lr.py` `STKalmanBeliefLR`: R at N=441 has numerical **rank 26**, and the channel lives
+*exactly* in range(R), so `h = Bc` loses nothing — state **1764 → 104**, **~4880× cheaper**, 16
+ms/slot. Verified bit-identical to the exact filter at full rank (`max|Δr| = 2e-11`) and matching to
+6e-7 truncated (`verify_tm_lr.py`). The "separable approximation" deferred earlier is **not needed**.
+*(Gotcha: greedy selection is DISCRETE — a 1e-7 belief difference flips a tie and changes the port
+set, so compare MEANS over seeds, never trajectories.)*
+
+**Results at OP_V2 (N=441, M=10, K=3), MC=3, T=40 — all gates pass** (`results_tm/fullscale.txt`):
+
+| protocol | AR(1) | AR(4) | gain | % genie |
+|---|---|---|---|---|
+| observe-then-precode | 18.289 | 20.214 | +1.93 | 91.1% |
+| predict-then-precode | 11.524 | 17.715 | **+6.19** | 79.8% |
+| partial (m=4) | 13.951 | 14.931 | +0.98 | 67.3% |
+| genie | — | 22.200 | | |
+
+Learning from a **wrong** Doppler (assumed 0.05, true 0.10); gap = **+11.301**:
+
+| arm | rate | recovery | order q |
+|---|---|---|---|
+| oracle | 17.715 | 100% | 4 |
+| wrong-fixed | 6.414 | 0% | — |
+| TM-3 naive | 3.295 | −28% | — |
+| TM-3 tuned hedge | 10.826 | 39% | — |
+| **PRINCIPLED (matched + order-sel)** | **15.713** | **82%** | 2.7 |
+
+**The key cross-scale result: hand-tuned constants DO NOT TRANSFER.** TM-3's hedge scores 79% → 60%
+at N=25 and collapses to **39%** at N=441; the principled estimator holds (87% → **82%**). Only
+visible at full scale.
+
+**Deployable headline (learner-achievable, not oracle):** starting from a wrong Doppler and learning
+online, **15.713 vs the current AR(1) model's 11.524 = +36%**, at 71% of genie.
+
+**Caveats:** MC=3/T=40 is gate-grade, not figure-grade (an MC=10 rerun plus a full-scale `m_sense`
+sweep were launched 2026-08-24 → `results_tm/fullscale_mc10.txt`, `fullscale_partial.txt`).
+
+---
+
+## 7. Open decisions / next steps
 
 1. **Paper 2 layer 2** (drift-aware MovingHotspot anticipation) — parked, "needs a lot of discussion."
    The one regime where horizon planning could genuinely beat myopic (pragmatic pre-positioning).
-2. **Predict-then-precode variant** — the principled home for the information machinery (correlation,
-   learning). Trade-off: much lower absolute rate. Open whether to build a copy version for it.
+2. ~~**Predict-then-precode variant** — open whether to build it.~~ **DONE (§6).** Built, and it is
+   no longer "much lower absolute rate": with the temporal model it reaches 17.7 vs observe's 20.2
+   (80% of genie), and it is the regime where learning demonstrably pays.
 3. Paper 1: optionally fold in a **preference-prior (QoS/fairness)** subsection; finalize & submit.
 4. Notation agreement with Zijun (tutorial M=candidate/N=active vs our N=candidate/M=active).
+5. **Where the temporal-model work goes.** It is a substantial, self-contained contribution
+   (predictable channel + learned Doppler + order selection) that does not fit inside Paper 1's
+   letter budget. Candidates: fold into Paper 2, or make it a third paper. **Undecided — Kian's call.**
+6. **Before any figure:** rerun at MC ≥ 10 (launched) and re-check the partial-sensing point, which
+   is the weakest full-scale number (67.3% of genie, only +0.98 from the temporal upgrade).
 
 ---
 
-## 7. File map (added since S1)
+## 8. File map (added since S1)
 
 ```
 PROGRESS_SINCE_S1.md                     <- this file
@@ -167,6 +297,24 @@ sim_version3/  (S1 additions)
   active_learn.py                         online + active R-learning agent (SHELVED result)
   nonstationary.py                        drifting-R channel generator + oracle-tracking
   verify_al_step0..3_premise.py           active-learning gates (AL thread, shelved)
+  -- partial sensing (§6.1) --
+  partial_sense.py                        run_aif_partial: pilot m_sense of M, infer the rest
+  verify_partial.py                       pilot-savings curve + R-inference value
+  verify_partial_mismatch.py              FAIR R-accuracy test (the +0.6 deflation)
+  -- temporal model (§6.2-6.5) --
+  temporal.py                             Jakes generator, Yule-Walker, TemporalACF (matched norm,
+                                          Bartlett se, LCB), ar_from_acf_robust (ORDER SELECTION)
+  st_belief.py                            STKalmanBelief (exact AR(p) space-time) + runners:
+                                          run_st / run_st_learn / run_st_learn_probe
+  st_belief_lr.py                         EXACT reduced-rank ST filter -> full N=441 (§6.5)
+  verify_tm_step0/1/2.py                  AR(p) predicts Jakes; noisy 20x; closed-loop by protocol
+  verify_tm_step3_premise.py, step3.py    wrong-Doppler cost; TM-3 tuned-hedge learning (SUPERSEDED)
+  verify_tm_step4.py                      TM-4 ablation: matched norm + order selection (87%)
+  verify_tm_step5.py                      TM-5 order/horizon study (AR(2) is the ceiling)
+  verify_tm_lr.py                         reduced-rank filter gate (exactness + speed)
+  verify_tm_fullscale.py                  full-scale N=441 TM-2 + TM-3/TM-4
+  verify_tm_fullscale_partial.py          full-scale m_sense sweep (pilot-savings curve)
+results_tm/                              <- temporal-model results (new folder convention)
 ```
 
 Memory files (auto-memory, not in repo): `epistemic-ablation-result`, `v5-column-protocol-finding`,
