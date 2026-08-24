@@ -191,7 +191,7 @@ def run_st_learn(bel, H, op, rng, acf, protocol="predict", relearn_every=5, m_se
 
 
 def run_st_learn_probe(bel, H, op, rng, acf, protocol="predict", relearn_every=5, m_sense=None,
-                       kappa=0.0, ev_inflate=1.0, probe=True, robust=True):
+                       kappa=0.0, ev_inflate=1.0, probe=True, robust=True, method="nonparam"):
     """TM-4 -- PRINCIPLED online Doppler learning: unbiased ACF + risk-aware point estimate.
 
     Two fixes over run_st_learn (which needed hand-tuned r_shrink / ev_inflate):
@@ -210,7 +210,8 @@ def run_st_learn_probe(bel, H, op, rng, acf, protocol="predict", relearn_every=5
     import efe
     from agent import _obs, _switch_count
     from precoding import sinr_and_rates
-    from temporal import ar_from_acf, ar_from_acf_robust, last_order
+    from temporal import (ar_from_acf, ar_from_acf_robust, ar_from_acf_parametric,
+                          last_order)
     T, K, N = H.shape
     p = bel.p
     orders = []
@@ -257,7 +258,10 @@ def run_st_learn_probe(bel, H, op, rng, acf, protocol="predict", relearn_every=5
             acf.update(t, list(S_sense), y)                          # biased baseline
         if (t + 1) % relearn_every == 0:
             r = acf.rhat_lcb(kappa)
-            if robust:
+            if method == "param":
+                a, ev = ar_from_acf_parametric(r, acf.stderr())  # fit ONE Doppler -> full order
+                orders.append(last_order())
+            elif robust:
                 a, ev = ar_from_acf_robust(r, acf.stderr())   # order selection + ridge + honest ev
                 orders.append(last_order())
             else:

@@ -183,6 +183,70 @@ def ar_from_acf_robust(r, se, n_draws=64, ridge=None, seed=0):
     return a, max(score, 1e-6)
 
 
+def fit_fd_jakes(r, se=None):
+    """Least-squares fit of the single Doppler parameter f_D to a measured autocorrelation.
+
+    WEIGHTED by 1/se^2 when standard errors are given. This is not cosmetic: TemporalACF.rhat()
+    reports r=1.0 for lags it has NO samples for (flagged by se=1.0), and at the first relearn the
+    high lags are always unsampled. An unweighted fit reads those 1.0's as "perfectly correlated"
+    and returns a wildly wrong f_D -- measured 0.3040 against a true 0.1000 at t=4, which wrecks the
+    belief before any real data arrives. Weighting by 1/se^2 makes an unsampled lag ~250x less
+    influential than a well-sampled one, so the fit follows the lags actually measured."""
+    from scipy.optimize import minimize_scalar
+    r = np.asarray(r, float)
+    taus = np.arange(1, len(r))
+    if se is None:
+        w = np.ones(len(taus))
+    else:
+        w = 1.0 / np.maximum(np.asarray(se, float)[1:], 1e-3) ** 2
+    obj = lambda fd: float(np.sum(w * (r[1:] - jakes_autocorr(taus, fd)) ** 2))
+    return float(minimize_scalar(obj, bounds=(0.005, 0.45), method="bounded").x)
+
+
+def ar_from_acf_parametric(r, se, n_draws=24, seed=0):
+    """PARAMETRIC alternative to ar_from_acf_robust: fit ONE physical parameter, not p free lags.
+
+    ar_from_acf_robust must estimate p free autocorrelation values and then survive an
+    ill-conditioned Yule-Walker solve, which forces it down to order ~2 and caps recovery. But the
+    physics says those p values are not free -- they all follow from the Doppler via
+    r(tau) = J0(2 pi f_D T_s tau). Fitting 1 parameter to p noisy lags is far better conditioned, so
+    the FULL order p becomes affordable: TM-6 measured f_D pinned to +-0.0045 even at se = 0.08.
+
+    TM-6 also measured the cost. This trades estimator variance for MODEL-MISMATCH BIAS: on
+    non-Jakes spectra the error is flat in se (it stops improving with more data) because the
+    residual is bias. It still beat the nonparametric fit in every cell at realistic sample sizes
+    (se >= 0.02), but with enough data the assumption-free estimator must eventually win.
+
+    Process noise is bootstrapped exactly as in ar_from_acf_robust -- resample the ACF, refit f_D,
+    and report the error those coefficients ACTUALLY incur -- so a slightly wrong f_D cannot make
+    the Kalman overconfident (the failure mode that craters predict-then-precode).
+    """
+    global _LAST_ORDER
+    r = np.asarray(r, float)
+    se = np.asarray(se, float)
+    p = len(r) - 1
+    if p == 0:
+        return np.array([]), 1.0
+    fd = fit_fd_jakes(r, se)
+    a, _ = ar_coeffs_yw(p, fd)
+    # Evaluate the process noise against a SANITISED reference: keep the lags we actually measured,
+    # and fill unsampled ones (se ~ 1) from the fitted Jakes curve instead of rhat()'s 1.0 default.
+    # Scoring against the raw r would either read garbage as a perfect predictor (ev -> the 1e-6
+    # floor, i.e. catastrophic overconfidence) or read shape mismatch as enormous noise (ev ~ 2).
+    r_eval = np.where(se >= 0.99, jakes_autocorr(np.arange(p + 1), fd), r)
+    r_eval[0] = 1.0
+    G = toeplitz(r_eval[:p])
+    rng = np.random.default_rng(seed)
+    evs = []
+    for _ in range(n_draws):
+        rp = r.copy()
+        rp[1:] = np.clip(r[1:] + rng.normal(0.0, 1.0, p) * se[1:], -0.999, 0.999)
+        ap, _ = ar_coeffs_yw(p, fit_fd_jakes(rp, se))
+        evs.append(float(r_eval[0] - 2.0 * ap @ r_eval[1:p + 1] + ap @ G @ ap))
+    _LAST_ORDER = p                                   # parametric always affords the full order
+    return a, max(float(np.median(evs)), 1e-6)
+
+
 _LAST_ORDER = None
 
 
