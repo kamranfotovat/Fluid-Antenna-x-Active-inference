@@ -38,14 +38,16 @@ the "learning doesn't pay" mood of §5 and §0**.
 
 ## 1. Paper strategy (decided)
 
-- **Paper 1 (S1, `sim_version3`)** — EFE port selection under partial CSI, 2-D pixel FAS. Essentially
-  done; a WCL-sized letter. Its novelty was pressure-tested and **survives** (see §2).
+- **Paper 1 (S1, `sim_version3`)** — ~~EFE port selection under partial CSI~~ **RESCOPED 2026-08-24
+  (Kian's decision): EFE port selection *and pilot allocation*.** See §9. Novelty pressure-tested
+  and survives (§2); the rescope is about making it *stronger*, not repairing it.
 - **Paper 2 (flagship, `sim_version5`)** — liquid-metal **column** FAS + AIF trajectory control. Under
   active construction (see §4). Myopic half built and gated; horizon planning layer 1 built.
 - **Extensions** (preferences/QoS, per-port power, active R-learning) — slot into whichever paper;
   active R-learning was explored and shelved (see §5).
-- Split into **2 papers, possibly 3**. Don't cram. Paper 1 = protect from being too thin; Paper 2 =
-  protect from being over-stuffed.
+- Split into **2 papers**. The temporal-model work is **no longer a candidate third paper** — it ships
+  inside Paper 1 as the enabler of the pilot reduction (§9). Paper 1 = protect from being too thin
+  (now handled); Paper 2 = protect from being over-stuffed.
 
 ---
 
@@ -290,9 +292,9 @@ partial sensing. Use m=6 — 83.5% of genie at 60% of the pilots, with a +2.4 te
    (80% of genie), and it is the regime where learning demonstrably pays.
 3. Paper 1: optionally fold in a **preference-prior (QoS/fairness)** subsection; finalize & submit.
 4. Notation agreement with Zijun (tutorial M=candidate/N=active vs our N=candidate/M=active).
-5. **Where the temporal-model work goes.** It is a substantial, self-contained contribution
-   (predictable channel + learned Doppler + order selection) that does not fit inside Paper 1's
-   letter budget. Candidates: fold into Paper 2, or make it a third paper. **Undecided — Kian's call.**
+5. ~~**Where the temporal-model work goes** — undecided.~~ **DECIDED 2026-08-24 → into Paper 1 (§9),**
+   together with partial sensing, keeping the S1 hybrid transmit stage. The two cannot be split: at
+   m=6 partial sensing alone loses ~10 points of genie and the temporal model is what buys it back.
 6. **Before any figure:** MC=10 done for Part 1 and the m_sense sweep (§6.6); **Part 2 at MC=10 still
    owed** (`python verify_tm_fullscale.py 10 40`, ~30 min). Quote **m=6**, not m=4, for partial
    sensing (§6.6).
@@ -346,3 +348,67 @@ results_tm/                              <- temporal-model results (new folder c
 
 Memory files (auto-memory, not in repo): `epistemic-ablation-result`, `v5-column-protocol-finding`,
 `active-learning-S1` capture the same findings for the assistant's recall.
+
+---
+
+## 9. Paper 1 RESCOPE (decided 2026-08-24) — "port selection + pilot allocation"
+
+**Decision (Kian):** fold partial sensing and the AR(p) temporal model into Paper 1, and **keep the
+S1 hybrid transmit stage**. The temporal-model work is no longer a separate paper.
+
+### Why — the rebranding exposure this closes
+
+The real reviewer risk was never "active inference vs Bayesian inference." It is this: under
+**observe-then-precode**, the belief only chooses *where to look*; the rate comes from fresh CSI. A
+reviewer can then say this is **uncertainty-aware sensor selection** (Krause & Guestrin 2008) with
+new vocabulary. The existing defence — the pragmatic term ties selection to the *communication*
+objective, and the switching cost makes it sequential — is true but sounds incremental.
+
+**Partial sensing removes the exposure structurally.** Once only `m_sense < M` ports are piloted,
+the belief's covariance enters the *achieved rate* through the precoder on the un-piloted ports. The
+belief stops being a selection heuristic and becomes load-bearing. It also lands on the field's
+actual pain point — 3 of the 7 related papers (§3) are about FAS channel-estimation overhead.
+
+### The headline claim
+
+| config | pilots | rate | % genie |
+|---|---|---|---|
+| m=10, AR(1) — *current* Paper 1 | 100% | 18.337 | 82.9% |
+| **m=6, AR(4)** — *proposed* | **60%** | **18.477** | 83.5% |
+
+**Equal rate on 40% fewer pilots.** Partial sensing alone at m=6 *loses* ~10 points of genie
+(82.9% → 72.7%); **the temporal model is what buys it back.** That is why the two must ship
+together — splitting them across papers weakens both.
+
+### Hardware story — get the two 6's right
+
+They are a **coincidence**, and conflating them is a claim a reviewer can break:
+- **n_rf = 6** on transmit because **6 = 2K** (K=3). Fully-connected infinite-resolution phase
+  shifters represent *any* digital precoder exactly at n_rf ≥ 2K (Sohrabi & Yu 2016; Zhang, Molisch
+  & Kung 2005). Verified free here — measured **bit-identical** to digital.
+- **m_sense = 6** because that is where the pilot-savings curve knees (§6.6).
+
+At K=4 transmit would need n_rf=8 while m_sense would stay ~6. In TDD the same chains serve both, so
+`max(6, 6) = 6` — but say *why* each 6 arises, separately.
+
+**Sensing front-end assumption (must be stated in the paper).** The `m_sense` piloted ports are
+modelled as clean **per-port** observations (a selection matrix `P_S`). That presumes a
+**switch-based** sensing front-end — standard for FAS, where port switching is the premise. A
+fully-connected unit-modulus phase-shifter network could *not* do this on receive: it cannot null
+the unselected ports, so each chain would see a *combination*. The hybrid network here is
+**transmit-only**, where it is post-processing of the precoder. Generalising the observation model
+from `P_S` to an arbitrary analog combiner `A` (≈3 lines in `STKalmanBelief.update`) would be a
+stronger, more novel result — **deliberately not done**; closed by assumption instead.
+
+### What this costs
+
+This un-finishes a paper that was "essentially done": new figures, new baselines, new text, and the
+temporal model has no write-up yet. Weeks, not days. The conservative alternative — ship Paper 1
+as-is and make partial+temporal a second paper — remains defensible; it just leaves Paper 1
+answering the sensor-selection objection with an argument rather than a result.
+
+### Status
+
+`verify_paper1_config.py` runs the actual paper configuration (partial sensing × AR order × **hybrid
+n_rf=6**) — the first time partial sensing and hybrid have been simulated together. Smoke test:
+hybrid is **exactly** digital at n_rf=2K. → `results_tm/paper1_config.txt`.

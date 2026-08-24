@@ -92,6 +92,21 @@ class STKalmanBelief:
         self.Q = [np.kron(E1, ev * self.beta[k] * self.R) for k in range(self.K)]
 
 
+# --------------------------------------------------------------------------- precoding helper
+def _precode(bel, S, op, rng_h):
+    """Belief-based robust-MMSE precoder, projected onto the hardware-feasible set if the operating
+    point specifies RF chains. Hybrid is pure POST-PROCESSING of the AIF precoder (hybrid.py), so
+    the belief / EFE selection / sensing are untouched. op.n_rf = None -> fully digital, which is
+    what OP_V2 uses, so every previously-recorded digital result is bit-for-bit unaffected."""
+    import efe
+    W, _, _ = efe.robust_mmse_from_belief(bel, S, op.sigma2, op.P)
+    n_rf = getattr(op, "n_rf", None)
+    if n_rf is not None and n_rf < W.shape[0]:
+        from hybrid import hybridize
+        W = hybridize(W, n_rf, P=op.P, rng=rng_h)
+    return W
+
+
 # --------------------------------------------------------------------------- closed-loop runner
 def run_st(bel, H, op, rng, protocol="observe", m_sense=None):
     """Closed-loop with the ST belief. protocol in {observe, predict, partial}. Returns rate/switch.
@@ -106,6 +121,7 @@ def run_st(bel, H, op, rng, protocol="observe", m_sense=None):
     bel.reset()
     rate = np.zeros(T); switch = np.zeros(T); S_prev = None
     pos = op.positions()
+    rng_h = np.random.default_rng(12345)          # separate stream: never perturbs the pilot noise
     for t in range(T):
         if t > 0:
             bel.predict()
@@ -114,7 +130,7 @@ def run_st(bel, H, op, rng, protocol="observe", m_sense=None):
                               positions=pos, d_min=op.d_min)
         idx = list(S)
         if protocol == "predict":
-            W, _, _ = efe.robust_mmse_from_belief(bel, S, op.sigma2, op.P)     # from predicted belief
+            W = _precode(bel, S, op, rng_h)                                    # from predicted belief
             rate[t] = float(sinr_and_rates(H[t][:, idx].T, W, op.sigma2)[1].sum())
             y = _obs(H[t], idx, K, op.sigma_e2, rng); bel.update(S, y)         # sense for next slot
         else:
@@ -125,7 +141,7 @@ def run_st(bel, H, op, rng, protocol="observe", m_sense=None):
             else:
                 S_sense = idx
             y = _obs(H[t], S_sense, K, op.sigma_e2, rng); bel.update(tuple(S_sense), y)
-            W, _, _ = efe.robust_mmse_from_belief(bel, S, op.sigma2, op.P)
+            W = _precode(bel, S, op, rng_h)
             rate[t] = float(sinr_and_rates(H[t][:, idx].T, W, op.sigma2)[1].sum())
         switch[t] = _switch_count(S, S_prev); S_prev = S
     return dict(rate=rate, switch=switch)
