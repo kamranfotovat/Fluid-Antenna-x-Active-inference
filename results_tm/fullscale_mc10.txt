@@ -35,3 +35,12 @@ PART 2 -- TM-3/TM-4 at full scale: online Doppler learning, predict-then-precode
   seed 0 done (2363s)
   seed 1 done (2562s)
   seed 2 done (2802s)
+
+=====================================================================
+NOTE (2026-08-24 16:02): PART 2 WAS DELIBERATELY KILLED, not crashed.
+Stopped ~3/10 seeds in to save battery. PART 1 ABOVE IS COMPLETE AND
+VALID at MC=10. For Part 2 (Doppler learning) use fullscale.txt, which
+has the complete MC=3 table: oracle 17.715 / wrong-fixed 6.414 /
+TM-3 naive 3.295 / TM-3 tuned 10.826 / PRINCIPLED 15.713 (82%).
+Rerun `python verify_tm_fullscale.py 10 40` to finish Part 2 at MC=10.
+=====================================================================

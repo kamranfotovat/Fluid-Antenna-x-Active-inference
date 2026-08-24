@@ -8,3 +8,24 @@ MC=8, T=40, fd=0.1, m_sense sweep [2, 4, 6, 8, 10] of M=10
   seed 4 done (1284s)
   seed 5 done (1734s)
   seed 6 done (2544s)
+  seed 7 done (2987s)
+
+ m_sense |  pilots |    AR(1) |    AR(4) |    gain |  % of full AR(4) |  % genie
+----------------------------------------------------------------------------------
+       2 |     20% |    8.865 |    9.581 |  +0.716 |            47.5% |    43.3%
+       4 |     40% |   14.038 |   14.701 |  +0.663 |            72.9% |    66.5%
+       6 |     60% |   16.070 |   18.477 |  +2.407 |            91.7% |    83.5%
+       8 |     80% |   17.223 |   19.715 |  +2.492 |            97.8% |    89.1%
+      10 |    100% |   18.298 |   20.159 |  +1.861 |           100.0% |    91.2%
+   genie |         |          |   22.116
+
+Gates:
+  [PASS] rate is monotone in pilots (AR(4))   9.58 <= 14.70 <= 18.48 <= 19.71 <= 20.16
+Traceback (most recent call last):
+  File "C:\Users\kian\ACTIVEINF\Fluid-Antenna-x-Active-inference\sim_version3\verify_tm_fullscale_partial.py", line 107, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "C:\Users\kian\ACTIVEINF\Fluid-Antenna-x-Active-inference\sim_version3\verify_tm_fullscale_partial.py", line 91, in main
+    A[(OP.M // 2, 4)] / full4 >= 0.70,
+    ~^^^^^^^^^^^^^^^^
+KeyError: (5, 4)

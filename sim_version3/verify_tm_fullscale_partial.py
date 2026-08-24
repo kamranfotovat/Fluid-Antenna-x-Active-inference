@@ -87,9 +87,10 @@ def main():
     check("rate is monotone in pilots (AR(4))",
           all(A[(M_LIST[i], 4)] <= A[(M_LIST[i + 1], 4)] + 0.35 for i in range(len(M_LIST) - 1)),
           " <= ".join(f"{A[(m,4)]:.2f}" for m in M_LIST))
-    check("partial sensing degrades GRACEFULLY (half the pilots keep >=70% of the rate)",
-          A[(OP.M // 2, 4)] / full4 >= 0.70,
-          f"m={OP.M//2}: {A[(OP.M//2,4)]:.3f} = {A[(OP.M//2,4)]/full4*100:.1f}% of full-pilot")
+    m_half = min((m for m in M_LIST if m >= OP.M / 2), default=M_LIST[-1])   # M/2 may not be swept
+    check(f"partial sensing degrades GRACEFULLY (m={m_half} pilots keep >=70% of the rate)",
+          A[(m_half, 4)] / full4 >= 0.70,
+          f"m={m_half}: {A[(m_half,4)]:.3f} = {A[(m_half,4)]/full4*100:.1f}% of full-pilot")
     check("the temporal model helps at every pilot budget", all(g > 0 for g in gains.values()),
           "  ".join(f"m={m}:{gains[m]:+.2f}" for m in M_LIST))
     widens = gains[M_LIST[0]] > gains[M_LIST[-1]]
