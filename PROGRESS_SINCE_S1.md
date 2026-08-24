@@ -250,8 +250,34 @@ visible at full scale.
 **Deployable headline (learner-achievable, not oracle):** starting from a wrong Doppler and learning
 online, **15.713 vs the current AR(1) model's 11.524 = +36%**, at 71% of genie.
 
-**Caveats:** MC=3/T=40 is gate-grade, not figure-grade (an MC=10 rerun plus a full-scale `m_sense`
-sweep were launched 2026-08-24 → `results_tm/fullscale_mc10.txt`, `fullscale_partial.txt`).
+**MC=10 rerun** (`results_tm/fullscale_mc10.txt`): Part 1 confirmed — predict **+5.880** (was +6.19),
+observe **+1.856** (was +1.93); both stable under 3× the seeds, so figure-grade. *Part 2 at MC=10 was
+deliberately killed mid-run to save battery (not a crash — the file says so); rerun
+`python verify_tm_fullscale.py 10 40` to finish it. The MC=3 Part 2 table stands in the meantime.*
+
+### 6.6 Full-scale pilot-savings curve — and a refuted hypothesis worth keeping
+
+`verify_tm_fullscale_partial.py`, MC=8, T=40 (`results_tm/fullscale_partial.txt`):
+
+| m_sense | pilots | AR(1) | AR(4) | gain | % full-pilot | % genie |
+|---|---|---|---|---|---|---|
+| 2 | 20% | 8.865 | 9.581 | +0.716 | 47.5% | 43.3% |
+| 4 | 40% | 14.038 | 14.701 | +0.663 | 72.9% | 66.5% |
+| 6 | 60% | 16.070 | 18.477 | **+2.407** | 91.7% | 83.5% |
+| 8 | 80% | 17.223 | 19.715 | **+2.492** | 97.8% | 89.1% |
+| 10 | 100% | 18.298 | 20.159 | +1.861 | 100% | 91.2% |
+
+The script's hypothesis — that the AR(4)−AR(1) gap **widens** as pilots are withdrawn, since more
+served ports are carried by the belief — is **REFUTED**. It *narrows* (+0.716 at m=2 vs +1.861 at
+m=10), and the gain **peaks at intermediate pilots** (m=6–8, ≈+2.5).
+
+> **Why:** with 2 of 10 ports sensed, the dominant error is **spatial** inference of the 8 unsensed
+> ports — the state is poorly known at every instant, so propagating it more accurately *in time*
+> buys little. **The temporal model needs a reasonably-informed belief to be worth propagating.**
+
+This also explains why the m=4 gain kept shrinking as seeds were added (+0.98 → +0.622 → +0.663):
+m=4 sits in the low-information regime. **Practical consequence: m=4 was the worst point to showcase
+partial sensing. Use m=6 — 83.5% of genie at 60% of the pilots, with a +2.4 temporal gain.**
 
 ---
 
@@ -267,8 +293,9 @@ sweep were launched 2026-08-24 → `results_tm/fullscale_mc10.txt`, `fullscale_p
 5. **Where the temporal-model work goes.** It is a substantial, self-contained contribution
    (predictable channel + learned Doppler + order selection) that does not fit inside Paper 1's
    letter budget. Candidates: fold into Paper 2, or make it a third paper. **Undecided — Kian's call.**
-6. **Before any figure:** rerun at MC ≥ 10 (launched) and re-check the partial-sensing point, which
-   is the weakest full-scale number (67.3% of genie, only +0.98 from the temporal upgrade).
+6. **Before any figure:** MC=10 done for Part 1 and the m_sense sweep (§6.6); **Part 2 at MC=10 still
+   owed** (`python verify_tm_fullscale.py 10 40`, ~30 min). Quote **m=6**, not m=4, for partial
+   sensing (§6.6).
 
 ---
 
