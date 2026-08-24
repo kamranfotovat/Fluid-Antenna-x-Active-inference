@@ -1,0 +1,37 @@
+FULL SCALE -- OP_V2: N=441 (21x21), 2x2 lambda, K=3, M=10, digital, d_min=off, 15 dB, rho=0.9, beta_w=0.25
+MC=10, T=40, true fd=0.1
+
+reduced rank r=26 of N=441  (exact: R is rank-deficient; see verify_tm_lr.py)
+
+========================================================================
+PART 1 -- TM-2 at full scale: AR(1) (current model) vs AR(4), by protocol
+========================================================================
+  seed 0 done (143s)
+  seed 1 done (306s)
+  seed 2 done (451s)
+  seed 3 done (608s)
+  seed 4 done (766s)
+  seed 5 done (926s)
+  seed 6 done (1085s)
+  seed 7 done (1240s)
+  seed 8 done (1428s)
+  seed 9 done (1823s)
+
+              protocol |    AR(1) |    AR(4) |    gain |  % genie
+------------------------------------------------------------------
+               observe |   18.337 |   20.192 |  +1.856 |    91.3%
+               predict |   11.753 |   17.633 |  +5.880 |    79.7%
+         partial (m=4) |   14.069 |   14.690 |  +0.622 |    66.4%
+   genie (perfect CSI) |          |   22.117 |
+
+Gates:
+  [PASS] AR(4) beats AR(1) in predict-then-precode   11.753 -> 17.633
+  [PASS] AR(4) >= AR(1) in observe-then-precode (better selection)   18.337 -> 20.192
+  [PASS] AR(4) beats AR(1) in partial sensing   14.069 -> 14.690
+
+========================================================================
+PART 2 -- TM-3/TM-4 at full scale: online Doppler learning, predict-then-precode
+========================================================================
+  seed 0 done (2363s)
+  seed 1 done (2562s)
+  seed 2 done (2802s)

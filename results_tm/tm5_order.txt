@@ -1,0 +1,29 @@
+OP_V1: N=25 (5x5), 1x1 lambda, K=3, M=5, digital, d_min=off, 15 dB, rho=0.9, beta_w=0.25
+MC=3, true fd=0.1, start-wrong fd=0.05, p_max=4, predict-then-precode
+
+  T=20 done (6s)
+C:\Users\kian\ACTIVEINF\Fluid-Antenna-x-Active-inference\sim_version3\efe.py:78: RuntimeWarning: invalid value encountered in log2
+  rates = np.log2(1.0 + sinr)
+  T=40 done (19s)
+  T=80 done (44s)
+  T=160 done (92s)
+
+ slots T |  ACF se(1) |  |r err| |  order q |  learned | forced p=4 | AR(4) orc | AR(2) orc |  % orc4
+------------------------------------------------------------------------------------------------------------
+      20 |     0.0625 |   0.0092 |     2.44 |   10.079 |      2.535 |    11.841 |    11.449 |   85.1%
+      40 |     0.0424 |   0.0081 |     2.44 |   11.913 |      2.278 |    13.097 |    11.393 |   91.0%
+      80 |     0.0301 |   0.0049 |     2.00 |   12.054 |      2.159 |    12.287 |    11.432 |   98.1%
+     160 |     0.0216 |   0.0044 |     2.00 |   12.088 |      6.540 |    12.359 |    11.487 |   97.8%
+
+Gates:
+  [PASS] more data -> smaller ACF standard error   se(1): 0.0625 (T=20) -> 0.0216 (T=160)
+  [PASS] more data -> higher rate   10.079 -> 12.088
+  [PASS] learned converges toward the AR(4) oracle   97.8% of oracle at T=160
+  [PASS] the selector refuses unaffordable orders (q stays low, ~2)   q -> 2.00 (not 4)
+  [PASS] that refusal is what saves it: forcing p=4 craters at EVERY horizon   forced 2.53 / 2.28 / 2.16 / 6.54  vs learned 10.08 / 11.91 / 12.05 / 12.09
+  [PASS] AR(2) oracle already captures most of AR(4) oracle (rate saturates early)   AR(2) 11.487 vs AR(4) 12.359 = 92.9%
+
+============================================================
+TM-5: ALL PASS  (92s)
+============================================================
+Information buys COEFFICIENT ACCURACY at a low safe order -- not order itself.

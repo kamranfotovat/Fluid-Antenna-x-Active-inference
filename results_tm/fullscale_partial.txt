@@ -1,0 +1,10 @@
+FULL-SCALE PARTIAL SENSING -- OP_V2: N=441 (21x21), 2x2 lambda, K=3, M=10, digital, d_min=off, 15 dB, rho=0.9, beta_w=0.25
+MC=8, T=40, fd=0.1, m_sense sweep [2, 4, 6, 8, 10] of M=10
+
+  seed 0 done (255s)
+  seed 1 done (497s)
+  seed 2 done (758s)
+  seed 3 done (1020s)
+  seed 4 done (1284s)
+  seed 5 done (1734s)
+  seed 6 done (2544s)
