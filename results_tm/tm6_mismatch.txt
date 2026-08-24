@@ -1,0 +1,56 @@
+TM-6 model mismatch -- parametric (Jakes) fit vs nonparametric, p=4, 300 draws/cell
+all spectra calibrated to r(1) = 0.9037
+
+        spectrum | r(1) r(2) r(3) r(4)
+----------------------------------------------------
+ jakes (MATCHED) | +0.904 +0.643 +0.291 -0.055
+            flat | +0.904 +0.648 +0.318 +0.018
+        gaussian | +0.904 +0.667 +0.402 +0.198
+      rician K=5 | +0.904 +0.634 +0.247 -0.180
+
+jakes (MATCHED)   (oracle AR(4) error = 0.00016)
+        se |   NONPARAM |  PARAM(Jakes) |     winner
+    -------------------------------------------------
+     0.005 |    0.01803 |       0.00016 |      PARAM
+     0.010 |    0.02479 |       0.00016 |      PARAM
+     0.020 |    0.05750 |       0.00016 |      PARAM
+     0.040 |    0.14626 |       0.00017 |      PARAM
+
+flat   (oracle AR(4) error = 0.00058)
+        se |   NONPARAM |  PARAM(Jakes) |     winner
+    -------------------------------------------------
+     0.005 |    0.02704 |       0.00126 |      PARAM
+     0.010 |    0.03049 |       0.00126 |      PARAM
+     0.020 |    0.06408 |       0.00127 |      PARAM
+     0.040 |    0.12418 |       0.00128 |      PARAM
+
+gaussian   (oracle AR(4) error = 0.01543)
+        se |   NONPARAM |  PARAM(Jakes) |     winner
+    -------------------------------------------------
+     0.005 |    0.05765 |       0.05620 |      PARAM
+     0.010 |    0.07301 |       0.05619 |      PARAM
+     0.020 |    0.08514 |       0.05617 |      PARAM
+     0.040 |    0.15193 |       0.05642 |      PARAM
+
+rician K=5   (oracle AR(4) error = 0.00002)
+        se |   NONPARAM |  PARAM(Jakes) |     winner
+    -------------------------------------------------
+     0.005 |    0.00714 |       0.00048 |      PARAM
+     0.010 |    0.01089 |       0.00047 |      PARAM
+     0.020 |    0.01963 |       0.00048 |      PARAM
+     0.040 |    0.03483 |       0.00047 |      PARAM
+
+Gates:
+  [PASS] MATCHED: parametric ~ reaches the oracle (the self-fulfilling case)   param 0.00016 vs oracle 0.00016 (nonparam 0.05750)
+  [PASS] MISMATCHED: parametric still beats nonparametric in most cells   12/12 cells
+  [PASS] MISMATCHED: parametric beats nonparametric at REALISTIC sample sizes (se>=0.02)   no losing cells
+  [PASS] parametric error is BIAS-dominated (flat in se) -> it has a mismatch FLOOR   flat: 0.0013 (spread 0.6%); gaussian: 0.0562 (spread 0.2%); rician K=5: 0.0005 (spread 0.5%)
+  [PASS] that floor still sits below the nonparametric error at realistic se   flat: floor 0.0013 vs nonparam 0.0641; gaussian: floor 0.0562 vs nonparam 0.0851; rician K=5: floor 0.0005 vs nonparam 0.0196
+
+  Bias-variance crossover: at the SMALLEST se tested (0.005), nonparametric already wins on 0/3 mismatched spectra ([]).
+  With enough data the assumption-free estimator must win -- the parametric fit trades variance for MISMATCH BIAS, and only
+  wins because at realistic horizons the variance dominates.
+
+==============================================================
+TM-6: ALL PASS
+==============================================================
