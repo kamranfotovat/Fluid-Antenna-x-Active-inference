@@ -6,16 +6,16 @@ reduced rank r=26 of N=441  (exact: R is rank-deficient; see verify_tm_lr.py)
 ========================================================================
 PART 1 -- TM-2 at full scale: AR(1) (current model) vs AR(4), by protocol
 ========================================================================
-  seed 0 done (143s)
-  seed 1 done (306s)
-  seed 2 done (451s)
-  seed 3 done (608s)
-  seed 4 done (766s)
-  seed 5 done (926s)
-  seed 6 done (1085s)
-  seed 7 done (1240s)
-  seed 8 done (1428s)
-  seed 9 done (1823s)
+  seed 0 done (198s)
+  seed 1 done (396s)
+  seed 2 done (597s)
+  seed 3 done (794s)
+  seed 4 done (995s)
+  seed 5 done (1197s)
+  seed 6 done (1397s)
+  seed 7 done (1595s)
+  seed 8 done (1793s)
+  seed 9 done (2273s)
 
               protocol |    AR(1) |    AR(4) |    gain |  % genie
 ------------------------------------------------------------------
@@ -32,15 +32,35 @@ Gates:
 ========================================================================
 PART 2 -- TM-3/TM-4 at full scale: online Doppler learning, predict-then-precode
 ========================================================================
-  seed 0 done (2363s)
-  seed 1 done (2562s)
-  seed 2 done (2802s)
+  seed 0 done (2566s)
+  seed 1 done (2730s)
+  seed 2 done (2889s)
+  seed 3 done (3093s)
+  seed 4 done (3252s)
+  seed 5 done (3415s)
+  seed 6 done (3581s)
+  seed 7 done (3727s)
+  seed 8 done (3878s)
+  seed 9 done (4028s)
 
-=====================================================================
-NOTE (2026-08-24 16:02): PART 2 WAS DELIBERATELY KILLED, not crashed.
-Stopped ~3/10 seeds in to save battery. PART 1 ABOVE IS COMPLETE AND
-VALID at MC=10. For Part 2 (Doppler learning) use fullscale.txt, which
-has the complete MC=3 table: oracle 17.715 / wrong-fixed 6.414 /
-TM-3 naive 3.295 / TM-3 tuned 10.826 / PRINCIPLED 15.713 (82%).
-Rerun `python verify_tm_fullscale.py 10 40` to finish Part 2 at MC=10.
-=====================================================================
+wrong-Doppler gap (oracle - wrong-fixed) = +11.218
+
+                     arm |     rate | recovery |  r-hat(1) |    bias |    q
+-----------------------------------------------------------------------------
+       oracle (knows fd) |   17.633 |     100% |        -- |      -- |   --
+   wrong-fixed (fd=0.05) |    6.414 |       0% |        -- |      -- |   --
+              TM-3 naive |    3.630 |     -25% |     0.938 |  +0.034 |   --
+        TM-3 tuned hedge |    8.567 |      19% |     0.933 |  +0.029 |   --
+      PRINCIPLED (N)+(O) |   15.735 |      83% |     0.907 |  +0.003 |  2.6
+
+true r(1) = 0.904
+
+Gates:
+  [PASS] wrong Doppler is costly at full scale (there IS a gap)   +11.218
+  [PASS] PRINCIPLED beats wrong-fixed   6.414 -> 15.735
+  [PASS] PRINCIPLED >= TM-3's tuned hedge   15.735 vs tuned 8.567
+  [PASS] PRINCIPLED recovers >= 50% of the gap   83%
+
+========================================================================
+FULL SCALE: ALL PASS  (4028s)
+========================================================================
