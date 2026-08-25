@@ -54,8 +54,8 @@
 
 \begin{document}
 
-\title{Active Inference for Port Selection in Fluid\\
-       Antenna Systems Under Partial CSI}
+\title{Active Inference for Joint Port Selection and\\
+       Pilot Allocation in Fluid Antenna Systems}
 
 \author{Kian~Fotovat$^{1}$ and Kamran~Fotovat$^{2}$%
   \thanks{$^{1}$Dept.\ of Electrical and Computer Engineering, University of
@@ -66,137 +66,94 @@
 \maketitle
 
 %==============================================================================
+% NOTE: numbers below are from results_tm/paper1_config.txt (MC=6). They are
+% being re-measured at MC=20 by sim_version3/make_fig2_data.py; update here and
+% in Section VI when that lands.
 \begin{abstract}
-Fluid antenna systems (FAS) enhance spatial diversity by activating a few
-radiating ports among many candidate positions, but selecting good ports
-conventionally requires channel state information (CSI) across all ports,
-incurring prohibitive acquisition overhead. We recast FAS port selection as
-active inference under partial CSI: the transmitter measures only the ports it
-activates, infers the remaining ports from a spatio-temporal generative model
-(Jakes spatial correlation and a first-order temporal model) through a complex
-Kalman belief, and selects ports by minimizing the expected free energy (EFE),
-which unifies expected achievable rate, information gain, and antenna-switching
-cost in a single objective. Selection is beamforming-aware: its pragmatic term
-is the expected sum rate of a robust minimum-mean-square-error (MMSE) precoder
-built from the same belief, which then serves the users. A greedy submodular
-selector yields low decision latency, and an observe-then-precode protocol
-keeps the served channel fresh. Simulations show that the proposed method
-operates on a rate--switching frontier reaching up to 89\% of a full-CSI
-genie's sum rate while observing only 20\% of the ports; its switching-aware
-objective exceeds that of the genie across the entire frontier and, at a
-balanced operating point, surpasses naive, deep-reinforcement-learning, and
-bandit baselines. The agent requires no training and remains robust to Doppler
-and to model mismatch, for which the spatial correlation can be learned online.
+Fluid antenna systems (FAS) obtain spatial degrees of freedom by activating a
+few radiating ports from a dense grid of candidates, but deciding which ports
+to activate presupposes channel knowledge at ports that are never measured.
+Prior port-selection work assumes full or near-full channel state information
+(CSI) and treats the pilot overhead as a fixed cost. We instead formulate port
+selection and pilot allocation \emph{jointly} as active inference. A
+spatio-temporal generative model --- sub-wavelength spatial correlation
+together with an order-$p$ autoregressive temporal prior --- maintains a
+Gaussian belief over all $N$ port channels, and the transmitter chooses both
+the ports it serves and the subset of them it pilots by minimizing an expected
+free energy that trades achievable rate against information gain and
+port-switching cost. Selection is greedy and submodular, at $\mathcal{O}(NM)$
+per slot. On a $441$-port grid with a hybrid front end at
+$n_{\mathrm{RF}}=2K$, the agent attains 91\% of a full-CSI genie's sum rate
+while measuring only 2.3\% of the candidate ports; pilots can then be withdrawn
+from ports that are still served, one fifth of them for 2\% of the sum rate and
+two fifths for 8\%. No training is required.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Fluid antenna systems, port selection, active inference, expected free energy,
-partial CSI, Kalman filtering.
+Fluid antenna systems, port selection, pilot allocation, active inference,
+expected free energy, partial CSI, Kalman filtering.
 \end{IEEEkeywords}
 
 %==============================================================================
 \section{Introduction}
 \label{sec:intro}
 
-Fluid antenna systems (FAS), also known as movable- or reconfigurable-position
-antenna systems, replace fixed radiating elements with elements whose location
-can be adjusted on demand among a dense set of candidate positions, or ports,
-within a compact aperture \cite{wong2021fas}. By repositioning to a favorable
-point in the spatial fading pattern, an FAS harvests spatial diversity that a
-conventional fixed array of the same size cannot, and it does so with only a
-handful of radio-frequency (RF) chains, since at any instant only the activated
-ports are connected to the front end. The ability to place antennas where the
-channel is strong, rather than where a fixed grid happens to lie, has made FAS
-a promising ingredient for next-generation wireless systems, with reported
-gains in diversity, spatial multiplexing, and multiple access. Across all of
-these settings the pivotal control problem is the same: port selection, that
-is, deciding slot by slot which subset of the many candidate ports to activate
-so as to maximize the delivered throughput.
+Fluid antenna systems (FAS), also called movable- or reconfigurable-position
+antenna systems, replace fixed radiating elements with elements whose position
+can be adjusted among a dense set of candidate positions, or ports, within a
+compact aperture \cite{wong2021fas}. By moving to a favourable point of the
+spatial fading pattern, an FAS harvests diversity that a fixed array of the
+same size cannot, using only a handful of radio-frequency (RF) chains, since at
+any instant only the activated ports are connected to the front end. The
+pivotal control problem is port selection: deciding slot by slot which subset
+of the candidates to activate.
 
-The difficulty is that a port can be scored only if its channel is known, and
-the channel differs from port to port. Conventional selection therefore
-presupposes channel state information (CSI) across all candidate ports.
-Acquiring that CSI, however, is expensive: the ports are numerous and, because
-the aperture is sampled at sub-wavelength spacing, they are packed far more
-densely than a half-wavelength array, so the number of channel coefficients to
-be estimated, and the pilot resources they consume, grows rapidly with the
-aperture. Moreover, only the activated ports can actually be observed through
-the RF chains; the remaining ports are at any instant physically unmeasured.
-The true bottleneck of FAS is thus not the selection arithmetic but channel
-acquisition under a hard sensing budget: the system must decide not only which
-ports to serve, but which ports are even worth measuring. This sensing cost is
-precisely what existing formulations tend to assume away.
+A port can be scored only if its channel is known, so conventional selection
+presupposes channel state information (CSI) at every candidate. That is
+expensive. The aperture is sampled at sub-wavelength spacing, so the ports are
+packed far more densely than a half-wavelength array and the number of
+coefficients to estimate grows rapidly with aperture. Worse, only activated
+ports can be observed at all. The bottleneck is therefore not the selection
+arithmetic but channel acquisition under a sensing budget: the system must
+decide which ports are worth measuring --- and, we add, whether a port that is
+served needs to be measured at all.
 
-Two broad lines of work approach the problem but leave this gap open. The first
-is learning-based selection. Deep reinforcement learning (DRL) with attention
-over ports \cite{drl_switching} and online bandit methods
-\cite{online_portsel} learn selection policies directly, and recent
-switching-cost-aware variants even penalize antenna movement; these methods,
-however, typically treat the full channel as an observed, cost-free input to
-the policy and/or require extensive interaction to train. The second is channel
-estimation for FAS. The successive Bayesian reconstructor \cite{sbar} and
-sequential linear minimum-mean-square-error estimation \cite{fas_lmmse}
-exploit spatial correlation to reconstruct the channel from limited pilots with
-high accuracy. Yet these methods solve estimation in isolation: they recover
-the channel but do not decide what to sense, what to serve, or when to move,
-and they do not weigh the value of an additional measurement against its cost.
-What is missing is a formulation in which sensing, serving, and movement are
-chosen jointly, under an explicit budget, from partial observations.
+Two lines of work approach this and leave the gap open. Learning-based
+selection --- deep reinforcement learning over ports \cite{drl_switching} and
+online bandits \cite{online_portsel} --- learns policies directly, but treats
+the full channel as an observed, cost-free input and requires extensive
+training. Channel estimation for FAS \cite{sbar,fas_lmmse} exploits spatial
+correlation to reconstruct the channel from few pilots, but solves estimation
+in isolation: it recovers the channel without deciding what to sense or what to
+serve, and never weighs a measurement against its cost. What is missing is a
+formulation in which sensing and serving are chosen jointly under an explicit
+budget.
 
-We contend that active inference supplies exactly this missing perspective.
-Rooted in the free-energy principle from computational neuroscience
-\cite{parr2022active}, active inference casts a decision-maker as an agent that
-maintains a probabilistic generative model of its environment and selects
-actions that minimize an expected free energy (EFE). A distinctive feature of
-the EFE is that it decomposes into two terms with clear operational meaning: a
-pragmatic value that rewards actions expected to fulfil the agent's goals, and
-an epistemic value that rewards actions expected to be informative, that is, to
-reduce uncertainty about hidden states of the world. Perception, the updating
-of beliefs from observations, and action, the choice of what to do and thereby
-what to observe next, are handled within one coherent objective rather than as
-separate mechanisms. This is a strikingly natural fit for FAS port selection
-under partial CSI. The hidden state is the channel over the unmeasured ports;
-the generative model is the spatial and temporal correlation structure of that
-channel; the pragmatic value is the throughput a port set is expected to
-deliver; and the epistemic value is the information a measurement reveals about
-the ports left unseen. The very tension that defines the problem, namely
-whether to spend a scarce activated port to serve now or to probe an uncertain
-but promising region for later, is expressed directly by the EFE rather than
-engineered in by hand. In contrast to black-box learning, the resulting agent
-is model-based and interpretable: every decision traces back to a belief about
-the channel and a transparent value of information, and it needs no training
-data. To the best of our knowledge, active inference has not previously been
-applied to fluid-antenna port selection, nor to channel acquisition under a
-sensing budget more broadly.
-
-Building on this view, we formulate FAS port selection as active inference
-under partial CSI and develop a concrete, low-complexity agent for it. Our
-contributions are as follows:
+Active inference supplies that perspective. Rooted in the free-energy principle
+\cite{parr2022active}, it casts a decision-maker as an agent holding a
+generative model of its environment and acting to minimize an expected free
+energy (EFE), which decomposes into a pragmatic value rewarding goal attainment
+and an epistemic value rewarding informative actions. The fit to FAS is close:
+the hidden state is the channel at unmeasured ports, the generative model is
+its spatial and temporal correlation, the pragmatic value is throughput, and
+the epistemic value is what a pilot reveals about the ports left unseen. The
+exploit--explore tension that defines the problem is thus expressed by the EFE
+rather than engineered in by hand.
 
 \begin{enumerate}
-\item We formulate FAS port selection as active inference under partial
-observability, removing the unrealistic full-CSI assumption of prior work and
-casting the task as active channel acquisition under a sensing budget.
+\item We formulate port selection \emph{and pilot allocation} jointly as active
+inference under partial CSI. The piloted set is a strict subset of the
+activated set, making the pilot budget a decision variable rather than a fixed
+cost --- to our knowledge the first such treatment for FAS.
 
-\item We develop a model-based agent that maintains a complex Kalman belief
-over all ports from a spatio-temporal prior, and selects ports by minimizing an
-expected free energy that unifies expected rate, information gain, and
-switching cost in a single objective, with no separately tuned preference
-vector. Selection is coupled to transmission: its pragmatic value is the
-achievable sum rate of a robust MMSE precoder computed from the belief, so
-ports are chosen in anticipation of the beamformer that will serve them.
+\item We give a concrete agent: a Gaussian belief over all $N$ ports from a
+spatial prior and an order-$p$ autoregressive temporal model, with ports and
+pilots chosen by greedy EFE minimization at $\mathcal{O}(NM)$ per slot, and an
+exact reduced-rank belief that makes a $21\times21$ grid tractable.
 
-\item We give a greedy submodular selector with an $(1-1/e)$ guarantee on the
-information term and $\mathcal{O}(NM)$ per-slot latency, together with an
-observe-then-precode protocol that keeps the served channel fresh and makes
-performance robust to Doppler.
-
-\item Through simulation we show that the agent operates on a rate--switching
-frontier reaching up to 89\% of a full-CSI genie's sum rate while observing
-only 20\% of the ports; its switching-aware objective exceeds the genie's
-across the whole frontier and, at a balanced operating point, surpasses naive,
-DRL, and bandit baselines with zero training, while remaining robust to Doppler
-and able to learn the spatial correlation online under model mismatch.
+\item We show that the agent reaches 91\% of a full-CSI genie's sum rate while
+measuring $2.3\%$ of the ports, and degrades gracefully as pilots are further
+withdrawn from ports it continues to serve.
 \end{enumerate}
 
 %==============================================================================
