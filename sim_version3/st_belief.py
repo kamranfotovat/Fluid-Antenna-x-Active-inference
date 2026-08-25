@@ -108,7 +108,44 @@ def _precode(bel, S, op, rng_h):
 
 
 # --------------------------------------------------------------------------- closed-loop runner
-def run_st(bel, H, op, rng, protocol="observe", m_sense=None):
+def choose_pilots(bel, idx, m, rule="variance"):
+    """Pick which m of the |S| ACTIVATED ports to spend pilots on.
+
+    rule="variance"  -- top-m by summed per-user posterior variance. Cheap, and the
+                        intuition is right (leave unpiloted what the belief is already
+                        confident about), but it scores each port in ISOLATION.
+    rule="epistemic" -- greedily maximize the EFE's own epistemic term,
+                        Epis(Q) = sum_k log2 det(I + Cov_k(Q)/sigma_e^2).
+                        Differs from "variance" by accounting for REDUNDANCY: two
+                        activated ports that are both uncertain AND strongly correlated
+                        with each other carry nearly the same information, so the second
+                        is nearly worthless. Marginal variance cannot see that; a log-det
+                        can. They coincide only if the candidates are uncorrelated, which
+                        on a sub-wavelength grid is exactly what we may not assume.
+
+    Note the first greedy pick is identical under both rules -- for a single port
+    log2(1 + var/sigma_e^2) is monotone in var. They diverge only from the second pick on.
+    """
+    if rule == "variance":
+        var = bel.port_variances()[:, idx].sum(axis=0)
+        return sorted(idx[i] for i in np.argsort(var)[::-1][:m])
+    if rule != "epistemic":
+        raise ValueError(f"unknown pilot rule {rule!r}")
+
+    import efe
+    chosen, remaining = [], list(idx)
+    while len(chosen) < m and remaining:
+        best_gain, best_p = -np.inf, None
+        for p in remaining:
+            gain = efe.epistemic_value(bel, tuple(sorted(chosen + [p])))
+            if gain > best_gain:
+                best_gain, best_p = gain, p
+        chosen.append(best_p)
+        remaining.remove(best_p)
+    return sorted(chosen)
+
+
+def run_st(bel, H, op, rng, protocol="observe", m_sense=None, pilot_rule="variance"):
     """Closed-loop with the ST belief. protocol in {observe, predict, partial}. Returns rate/switch.
       observe : select -> sense all M -> update -> precode (fresh)
       predict : select -> precode (from predicted belief) -> sense all M -> update (for next slot)
@@ -135,9 +172,7 @@ def run_st(bel, H, op, rng, protocol="observe", m_sense=None):
             y = _obs(H[t], idx, K, op.sigma_e2, rng); bel.update(S, y)         # sense for next slot
         else:
             if protocol == "partial" and m_sense is not None and m_sense < len(idx):
-                var = bel.port_variances()[:, idx].sum(axis=0)
-                order = np.argsort(var)[::-1]
-                S_sense = sorted(idx[i] for i in order[:m_sense])
+                S_sense = choose_pilots(bel, idx, m_sense, rule=pilot_rule)
             else:
                 S_sense = idx
             y = _obs(H[t], S_sense, K, op.sigma_e2, rng); bel.update(tuple(S_sense), y)
