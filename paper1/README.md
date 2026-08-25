@@ -33,6 +33,20 @@ if citations render as `[?]`, you skipped one.
 
 Clean up with `latexmk -c` (keeps the PDF) or `latexmk -C` (removes it too).
 
+## Previewing a figure
+
+```
+./build_fig.sh fig_timeline      # renders that one figure at true column width
+python render.py main.pdf 150    # rasterizes the built PDF to _render/*.png
+```
+
+`render.py` needs PyMuPDF (`pip install pymupdf`).
+
+**Do not preview with `latex` + `dvipng`.** In DVI mode TikZ emits its drawing
+commands as PostScript specials, which dvipng does not execute -- it renders
+the text and silently discards every line, arrow and filled shape, so a
+perfectly good figure looks broken. Always rasterize the real PDF.
+
 ## Figures
 
 Save every figure from matplotlib as **PDF**, not PNG:

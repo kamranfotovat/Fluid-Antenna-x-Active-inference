@@ -1,0 +1,100 @@
+% =============================================================================
+%  Fig. 1 -- per-slot protocol timeline.
+%
+%  The point of this figure: the ACTIVATED set S_t and the PILOTED set Q_t are
+%  NOT the same set. Q_t is a strict subset. Without this picture a reviewer
+%  will read m and M as the same quantity, which erases the contribution.
+%
+%  Drawn in TikZ so it uses the paper's own fonts and stays vector. Grayscale
+%  only -- must survive a black-and-white print.
+%
+%  Geometry: laid out for a 3.5in (8.9cm) IEEE column; all coordinates are cm.
+%  Vertical budget, bottom to top:
+%     0.35        sub-labels under the stage boxes
+%     1.10        stage boxes
+%     1.75        dashed "belief carried forward" arrow
+%     2.05-2.45   callout
+%     2.55-3.99   port grid (left) and legend (right)
+%
+%  PREVIEW:  ./build_fig.sh fig_timeline
+%  NOTE:     preview goes through pdflatex, never latex+dvipng -- dvipng
+%            silently discards TikZ's PostScript specials. See build_fig.sh.
+% =============================================================================
+\begin{tikzpicture}[
+  x=1cm, y=1cm,
+  font=\scriptsize,
+  >={Stealth[length=1.5mm]},
+  stage/.style={
+    draw, rounded corners=1.2pt, align=center, inner sep=1.5pt,
+    minimum height=6.6mm, minimum width=15.5mm, fill=black!4, line width=0.35pt},
+  sub/.style={font=\fontsize{5.6}{6.6}\selectfont, align=center, inner sep=1pt},
+  key/.style={font=\fontsize{5.8}{6.6}\selectfont, inner sep=1pt, anchor=west},
+]
+
+% ------------------------------------------------------------ port grid
+% 7x7 schematic of the N candidate ports. Five are activated (S_t); three of
+% those five are also piloted (Q_t).
+\begin{scope}[shift={(0,2.55)}]
+  \foreach \c in {0,...,6}
+    \foreach \r in {0,...,6}
+      \fill[black!28] (0.24*\c, 0.24*\r) circle (0.030);
+
+  % activated ports S_t   (|S_t| = M)
+  \foreach \p in {(0.24,1.20), (0.96,1.44), (0.48,0.48), (1.20,0.72), (0.72,0)}
+    \fill[black] \p circle (0.062);
+
+  % piloted subset Q_t    (|Q_t| = m) -- ringed
+  \foreach \p in {(0.24,1.20), (1.20,0.72), (0.72,0)}
+    \draw[line width=0.5pt] \p circle (0.125);
+
+  % an activated-but-unpiloted port, for the callout to point at
+  \coordinate (unpiloted) at (0.48,0.48);
+\end{scope}
+
+% ------------------------------------------------------------ legend
+\fill[black!28] (2.05,3.87) circle (0.030);
+\node[key] at (2.20,3.87) {one of $N$ candidate ports};
+
+\fill[black] (2.05,3.54) circle (0.062);
+\node[key] at (2.20,3.54)
+  {\textbf{activated}, $\mathcal{S}_t$, $|\mathcal{S}_t|=M$ --- carries data};
+
+\fill[black] (2.05,3.21) circle (0.062);
+\draw[line width=0.5pt] (2.05,3.21) circle (0.125);
+\node[key] at (2.20,3.21)
+  {\textbf{piloted}, $\mathcal{Q}_t\subseteq\mathcal{S}_t$, $|\mathcal{Q}_t|=m\le M$};
+
+% ------------------------------------------------------------ callout
+\node[font=\fontsize{5.8}{7}\selectfont, anchor=north west,
+      text width=6.15cm, align=left, inner sep=1pt] (callout) at (2.20,2.60)
+  {the $M-m$ activated-but-unpiloted ports are \emph{served without ever being
+   measured}, inferred through $\mathbf{R}$ and the AR($p$) prior};
+
+\draw[->, line width=0.35pt, black!60]
+  (callout.west) to[out=180, in=-20] ($(unpiloted)+(0.11,-0.03)$);
+
+% ------------------------------------------------------------ timeline
+\node[stage] (predict) at (0.875,1.10) {predict\\[-1pt]belief};
+\node[stage] (select)  at (2.575,1.10) {select $\mathcal{S}_t$};
+\node[stage] (sense)   at (4.275,1.10) {pilot $\mathcal{Q}_t$};
+\node[stage] (update)  at (5.975,1.10) {update\\[-1pt]belief};
+\node[stage] (tx)      at (7.675,1.10) {precode\\[-1pt]\& transmit};
+
+\draw[->] (predict) -- (select);
+\draw[->] (select)  -- (sense);
+\draw[->] (sense)   -- (update);
+\draw[->] (update)  -- (tx);
+
+\node[sub, below=1.0mm of predict] {AR($p$)\\[-1pt]dynamics};
+\node[sub, below=1.0mm of select]  {greedy EFE\\[-1pt]$\mathcal{O}(NM)$};
+\node[sub, below=1.0mm of sense]   {\emph{uplink}\\[-1pt]$m$ pilots};
+\node[sub, below=1.0mm of update]  {Kalman\\[-1pt]all $N$ ports};
+\node[sub, below=1.0mm of tx]      {\emph{downlink}\\[-1pt]$M$ ports};
+
+% belief carried into the next slot
+\draw[->, dashed, line width=0.35pt, black!70]
+  (tx.north) -- (7.675,1.78)
+  -- node[sub, above, pos=0.5, black] {belief carried to slot $t+1$}
+  (0.875,1.78) -- (predict.north);
+
+\end{tikzpicture}

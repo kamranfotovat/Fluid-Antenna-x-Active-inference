@@ -19,6 +19,8 @@
 \usepackage{algorithm}
 \usepackage{algorithmic}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,shapes.geometric}
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage[colorlinks=true,allcolors=blue]{hyperref}
@@ -200,6 +202,19 @@ and able to learn the spatial correlation online under model mismatch.
 %==============================================================================
 \section{Fluid Antenna System Model}
 \label{sec:model}
+
+\begin{figure}[t]
+  \centering
+  \input{fig_timeline}
+  \caption{Per-slot operation. The base station activates $M$ of $N$ candidate
+  ports, but spends pilots on only $m\le M$ of them; the remaining $M-m$
+  activated ports carry data while never being measured, their channels
+  supplied by the belief alone. Both the activated set $\mathcal{S}_t$ and the
+  piloted subset $\mathcal{Q}_t$ are chosen by minimizing the same expected
+  free energy, which is what turns the pilot budget from a fixed cost into a
+  design variable.}
+  \label{fig:timeline}
+\end{figure}
 
 We consider the downlink of a single-cell multiuser system in which a base
 station (BS) equipped with a fluid antenna serves $K$ single-antenna users.
