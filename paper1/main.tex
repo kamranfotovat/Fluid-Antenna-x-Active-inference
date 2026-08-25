@@ -26,11 +26,17 @@
 \newcommand{\bW}{\mathbf{W}}
 \newcommand{\bP}{\mathbf{P}}
 \newcommand{\bF}{\mathbf{F}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bn}{\mathbf{n}}
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\bB}{\mathbf{B}}
 \newcommand{\bmu}{\boldsymbol{\mu}}
 \newcommand{\bSig}{\boldsymbol{\Sigma}}
 \newcommand{\CN}{\mathcal{CN}}
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\bbC}{\mathbb{C}}
+\newcommand{\bbR}{\mathbb{R}}
 \DeclareMathOperator{\tr}{tr}
 \DeclareMathOperator*{\argmin}{arg\,min}
 \DeclareMathOperator*{\argmax}{arg\,max}
@@ -91,27 +97,356 @@ selection decision.}
 %==============================================================================
 \section{System Model}
 \label{sec:model}
-\todo{Geometry and port grid; spatial correlation $\bR$; multiuser downlink;
-hybrid transmit front end; per-slot protocol timeline.}
+
+\subsection{Port Geometry and Spatial Correlation}
+The base station is equipped with a fluid antenna whose radiating element may be
+positioned at any of $N$ candidate \emph{ports} arranged on a uniform
+$N_x\times N_y$ grid over an aperture of $W_x\lambda \times W_y\lambda$, with
+$\lambda$ the wavelength. Let $\mathbf{u}_n\in\mathbb{R}^2$ denote the position
+of port $n$ and $d_{ij}=\|\mathbf{u}_i-\mathbf{u}_j\|$. Under the classical
+Jakes model for two-dimensional isotropic scattering, the spatial correlation
+between two ports depends only on their separation,
+\begin{equation}
+  [\bR]_{ij} \;=\; J_0\!\left(\frac{2\pi d_{ij}}{\lambda}\right),
+  \label{eq:R}
+\end{equation}
+where $J_0(\cdot)$ is the zeroth-order Bessel function of the first kind. The
+channel from the $N$ ports to user $k$ is spatially correlated Rayleigh,
+$\bh_k(t)\in\bbC^{N}$ with $\bh_k(t)\sim\CN(\mathbf{0},\beta_k\bR)$, where
+$\beta_k$ is the large-scale gain of user $k$. Because the port spacing is
+sub-wavelength, $\bR$ is strongly rank-deficient; Section~\ref{sec:belief}
+exploits this.
+
+\subsection{Temporal Model}
+The channel evolves across slots as an order-$p$ autoregressive process driven
+by spatially correlated innovations,
+\begin{equation}
+  \bh_k(t) = \sum_{i=1}^{p} a_i\,\bh_k(t-i) + \mathbf{e}_k(t),
+  \quad
+  \mathbf{e}_k(t)\sim\CN(\mathbf{0},\sigma_v^2\beta_k\bR),
+  \label{eq:ar}
+\end{equation}
+with $\mathbf{e}_k(t)$ independent across $t$ and of the past. The coefficients
+$\mathbf{a}=[a_1,\dots,a_p]^{\mathrm{T}}$ and the innovation variance
+$\sigma_v^2$ are those of the Jakes temporal autocorrelation
+$r(\tau)=J_0(2\pi f_D T_s \tau)$, obtained from the Yule--Walker system
+\begin{equation}
+  \boldsymbol{\Gamma}\mathbf{a}=\mathbf{r},
+  \qquad
+  \sigma_v^2 = r(0)-\mathbf{a}^{\mathrm{T}}\mathbf{r},
+  \label{eq:yw}
+\end{equation}
+where $[\boldsymbol{\Gamma}]_{ij}=r(|i-j|)$ and
+$\mathbf{r}=[r(1),\dots,r(p)]^{\mathrm{T}}$. Here $f_D$ is the maximum Doppler
+frequency and $T_s$ the slot duration. Setting $p=1$ recovers the first-order
+Gauss--Markov model $a_1=\rho=J_0(2\pi f_D T_s)$ used in most prior work; the
+value of $p>1$ is quantified in Section~\ref{sec:results}.
+
+\subsection{Activation and Pilot Allocation}
+In slot $t$ the agent activates a set $\mathcal{S}_t\subset\{1,\dots,N\}$ of
+$|\mathcal{S}_t|=M$ ports, and \emph{pilots a subset of them},
+\begin{equation}
+  \mathcal{Q}_t \subseteq \mathcal{S}_t,
+  \qquad |\mathcal{Q}_t| = m \le M \le N .
+  \label{eq:sets}
+\end{equation}
+For an index set $\mathcal{A}$ let
+$\bP_{\mathcal{A}}\in\{0,1\}^{|\mathcal{A}|\times N}$ be the selection matrix
+whose rows are the standard basis vectors indexed by $\mathcal{A}$, so
+$\bP_{\mathcal{A}}\mathbf{x}$ extracts the entries of $\mathbf{x}$ on
+$\mathcal{A}$. During the pilot phase the users transmit orthogonal sequences
+and the base station observes
+\begin{equation}
+  \by_k(t) \;=\; \bP_{\mathcal{Q}_t}\bh_k(t) + \bn_k(t),
+  \qquad
+  \bn_k(t)\sim\CN(\mathbf{0},\sigma_e^2\bI_m),
+  \label{eq:obs}
+\end{equation}
+with $\sigma_e^2$ set by the pilot SNR. The remaining $N-m$ ports --- including
+the $M-m$ ports that are activated but \emph{not} piloted --- are never
+measured in slot $t$ and must be inferred from \eqref{eq:R} and \eqref{eq:ar}.
+Prior port-selection work fixes $m=M$; treating $m<M$ makes the pilot budget a
+design variable, which is the object of this letter.
+
+\subsection{Hybrid Downlink Transmission}
+The $M$ activated ports are driven by $n_{\mathrm{RF}}\le M$ radio-frequency
+chains through a fully-connected network of unit-modulus phase shifters. The
+transmitted signal is $\mathbf{x}(t)=\bF_{\mathrm{RF}}\bW_{\mathrm{BB}}
+\mathbf{s}(t)$ with $\mathbf{s}\sim\CN(\mathbf{0},\bI_K)$, giving the effective
+precoder
+\begin{equation}
+  \bW = \bF_{\mathrm{RF}}\bW_{\mathrm{BB}} \in \bbC^{M\times K},
+  \quad
+  \big|[\bF_{\mathrm{RF}}]_{ij}\big| = 1,
+  \quad
+  \|\bW\|_F^2 \le P .
+  \label{eq:hybrid}
+\end{equation}
+Writing $\bh_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bh_k$ and treating inter-user
+interference as noise, user $k$ achieves
+\begin{equation}
+  R_k \;=\; \log_2\!\left(
+    1+\frac{\big|\bh_{k,\mathcal{S}}^{\mathrm{H}}\bw_k\big|^2}
+           {\sum_{j\neq k}\big|\bh_{k,\mathcal{S}}^{\mathrm{H}}\bw_j\big|^2+\sigma^2}
+  \right),
+  \label{eq:rate}
+\end{equation}
+where $\sigma^2$ is the receiver noise power and $\bw_k$ the $k$-th column of
+$\bW$.
+
+\subsection{Problem Statement}
+Repositioning the element between slots costs delay and energy, which we charge
+through the number of ports that change,
+$C_t=|\mathcal{S}_t\,\triangle\,\mathcal{S}_{t-1}|$, with $\triangle$ the
+symmetric set difference. The design problem is
+\begin{equation}
+  \begin{aligned}
+    \max_{\{\mathcal{S}_t,\,\mathcal{Q}_t\}}\;\;
+      & \sum_{t=1}^{T}\left(\sum_{k=1}^{K}R_k(t)-\eta_{\mathrm{sw}}C_t\right)\\[-2pt]
+    \text{s.t.}\;\;
+      & |\mathcal{S}_t|=M,\quad
+        \mathcal{Q}_t\subseteq\mathcal{S}_t,\quad
+        |\mathcal{Q}_t|=m,
+  \end{aligned}
+  \label{eq:problem}
+\end{equation}
+with $\eta_{\mathrm{sw}}\ge0$ trading throughput against reconfiguration. The
+difficulty is that $R_k(t)$ depends on the channel at ports that
+\eqref{eq:obs} never reveals, so $\mathcal{S}_t$ and $\mathcal{Q}_t$ must be
+chosen from a \emph{belief} rather than from the channel.
 
 %==============================================================================
 \section{Generative Model and Belief}
 \label{sec:belief}
-\todo{Spatio-temporal state-space model; AR($p$) temporal prior; Kalman
-recursion; partial observation via selection matrix; reduced-rank
-implementation.}
+
+\subsection{State-Space Form}
+Stacking the last $p$ channel snapshots into
+$\bz_k(t)=[\bh_k(t)^{\mathrm{T}},\dots,\bh_k(t-p+1)^{\mathrm{T}}]^{\mathrm{T}}
+\in\bbC^{pN}$ turns \eqref{eq:ar} into a first-order recursion
+\begin{equation}
+  \bz_k(t) = \bF\,\bz_k(t-1) + \boldsymbol{\epsilon}_k(t),
+  \qquad
+  \bF = \mathbf{C}_{\mathbf{a}}\otimes\bI_N,
+  \label{eq:state}
+\end{equation}
+where $\mathbf{C}_{\mathbf{a}}\in\bbR^{p\times p}$ is the companion matrix of
+$\mathbf{a}$ and the process noise is confined to the current-time block,
+\begin{equation}
+  \mathbf{Q}_k
+  = \E\big[\boldsymbol{\epsilon}_k\boldsymbol{\epsilon}_k^{\mathrm{H}}\big]
+  = \big(\mathbf{e}_1\mathbf{e}_1^{\mathrm{T}}\big)
+    \otimes\big(\sigma_v^2\beta_k\bR\big),
+  \label{eq:Q}
+\end{equation}
+with $\mathbf{e}_1$ the first column of $\bI_p$. The Kronecker structure states
+the model's key property: the temporal dynamics act identically on every port,
+and the spatial correlation is identical in every slot. The observation
+\eqref{eq:obs} reads $\by_k(t)=\mathbf{G}_{\mathcal{Q}_t}\bz_k(t)+\bn_k(t)$
+with $\mathbf{G}_{\mathcal{A}}=[\,\bP_{\mathcal{A}}\;\;
+\mathbf{0}_{|\mathcal{A}|\times(p-1)N}\,]$, i.e.\ pilots see the current
+channel only.
+
+\subsection{Kalman Recursion}
+The model is linear-Gaussian, so the exact posterior is Gaussian,
+$q(\bz_k)=\CN(\hat{\bz}_k,\bP_k)$, propagated by a per-user complex Kalman
+filter. The predict step advances the belief through the AR dynamics, encoding
+channel aging:
+\begin{equation}
+  \hat{\bz}_k \leftarrow \bF\hat{\bz}_k,
+  \qquad
+  \bP_k \leftarrow \bF\bP_k\bF^{\mathrm{H}} + \mathbf{Q}_k .
+  \label{eq:predict}
+\end{equation}
+Given the pilots on $\mathcal{Q}_t$, with
+$\mathbf{G}\triangleq\mathbf{G}_{\mathcal{Q}_t}$ and Kalman gain
+\begin{equation}
+  \mathbf{K}_k = \bP_k\mathbf{G}^{\mathrm{H}}
+  \big(\mathbf{G}\bP_k\mathbf{G}^{\mathrm{H}}+\sigma_e^2\bI_m\big)^{-1},
+  \label{eq:gain}
+\end{equation}
+the correction step is
+\begin{align}
+  \hat{\bz}_k &\leftarrow \hat{\bz}_k
+     + \mathbf{K}_k\big(\by_k-\mathbf{G}\hat{\bz}_k\big),
+  \label{eq:mean}\\
+  \bP_k &\leftarrow
+     \big(\bI-\mathbf{K}_k\mathbf{G}\big)\bP_k
+     \big(\bI-\mathbf{K}_k\mathbf{G}\big)^{\mathrm{H}}
+     + \sigma_e^2\mathbf{K}_k\mathbf{K}_k^{\mathrm{H}} .
+  \label{eq:joseph}
+\end{align}
+Only the $m\times m$ innovation covariance is inverted, and it is regularized
+by $\sigma_e^2\bI_m$; the rank-deficient prior $\bR$ therefore needs no
+artificial jitter, and the Joseph form \eqref{eq:joseph} keeps $\bP_k$
+Hermitian positive semidefinite. The belief over the current channel is the
+leading block,
+\begin{equation}
+  \bmu_k = \boldsymbol{\Pi}\hat{\bz}_k,
+  \qquad
+  \bSig_k = \boldsymbol{\Pi}\bP_k\boldsymbol{\Pi}^{\mathrm{H}},
+  \qquad
+  \boldsymbol{\Pi} = [\,\bI_N\;\;\mathbf{0}\,].
+  \label{eq:marginal}
+\end{equation}
+Two couplings do the work. Spatially, the off-diagonals of $\bR$ propagate a
+measurement at one port to its correlated neighbours, so $m$ pilots inform far
+more than $m$ ports. Temporally, \eqref{eq:predict} carries information forward
+across slots, so a port piloted in an earlier slot retains a usable estimate.
+Together they are what permit $m<M$.
+
+\subsection{Exact Reduced-Rank Implementation}
+Carrying $\bP_k\in\bbC^{pN\times pN}$ is infeasible at the scale we target
+($N=441$, $p=4$ gives $1764\times1764$ per user per slot). It is also
+unnecessary. Let $\bR=\bB\boldsymbol{\Lambda}\bB^{\mathrm{H}}$ be the
+eigendecomposition truncated to the $r$ eigenvalues carrying all but a fraction
+$10^{-6}$ of the energy. Since $\bh_k(t)\in\mathrm{range}(\bR)$ for every $t$,
+\begin{equation}
+  \bh_k(t) = \bB\,\mathbf{c}_k(t),
+  \qquad \mathbf{c}_k(t)\in\bbC^{r},
+  \label{eq:lowrank}
+\end{equation}
+holds \emph{exactly}, and $\mathbf{c}_k$ is a sufficient statistic for
+$\bh_k$. Because \eqref{eq:state} acts identically on every port, the dynamics
+carry over unchanged with $\bI_N$ replaced by $\bI_r$. The state dimension
+drops from $pN$ to $pr$ and the per-slot cost from
+$\mathcal{O}\big((pN)^3\big)$ to $\mathcal{O}\big((pr)^3\big)$. At $N=441$ the
+numerical rank is $r=26$, a reduction of roughly $4.9\times10^{3}$ in
+arithmetic at no modelling cost.
 
 %==============================================================================
 \section{Expected Free Energy and Selection}
 \label{sec:efe}
-\todo{EFE objective; pragmatic / epistemic / switching terms; submodularity
-and the greedy guarantee; joint selection of served and piloted ports.}
+
+\subsection{The Objective}
+Rather than treating exploration as a heuristic bolted onto a rate maximizer,
+we score a candidate pair $(\mathcal{S},\mathcal{Q})$ by an expected free
+energy, written as a value to be minimized,
+\begin{equation}
+  G(\mathcal{S},\mathcal{Q}) =
+   -\,\alpha\,\mathrm{Prag}(\mathcal{S})
+   -\,\beta_w\,\mathrm{Epis}(\mathcal{Q})
+   +\,\eta_{\mathrm{sw}}\big|\mathcal{S}\,\triangle\,\mathcal{S}_{t-1}\big| .
+  \label{eq:efe}
+\end{equation}
+The \emph{pragmatic} term is the sum rate the belief predicts, penalized by its
+own residual uncertainty. With $\bmu_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bmu_k$
+and $\bSig_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bSig_k\bP_{\mathcal{S}}^{\mathrm{H}}$,
+\begin{equation}
+  \mathrm{Prag}(\mathcal{S}) = \sum_{k=1}^{K}
+    \log_2\!\left(1+
+    \frac{\big|\bmu_{k,\mathcal{S}}^{\mathrm{H}}\bw_k\big|^2}{\mathcal{I}_k}
+    \right),
+  \label{eq:prag}
+\end{equation}
+\begin{equation}
+  \mathcal{I}_k =
+    \sum_{j\neq k}\big|\bmu_{k,\mathcal{S}}^{\mathrm{H}}\bw_j\big|^2
+    + \underbrace{\sum_{j}\bw_j^{\mathrm{H}}\bSig_{k,\mathcal{S}}\bw_j}
+      _{\text{CSI-error leakage}}
+    + \sigma^2 .
+  \label{eq:leak}
+\end{equation}
+The middle term of \eqref{eq:leak} is what makes the agent conservative when
+uncertain: a port with a large posterior variance contributes interference it
+cannot precode away. It is also what the robust MMSE precoder used for $\bW$
+minimizes, before the hybrid factorization \eqref{eq:hybrid} is applied.
+
+The \emph{epistemic} term is the mutual information between the channel and the
+pilots that $\mathcal{Q}$ would produce, i.e.\ the expected reduction in belief
+entropy,
+\begin{equation}
+  \mathrm{Epis}(\mathcal{Q}) = \sum_{k=1}^{K}
+    \log_2\det\!\left(\bI_{m}
+      + \sigma_e^{-2}\,
+      \bP_{\mathcal{Q}}\bSig_k\bP_{\mathcal{Q}}^{\mathrm{H}}\right).
+  \label{eq:epis}
+\end{equation}
+Through the off-diagonals of $\bSig_k$, piloting one port also gathers
+information about its neighbours. The two terms encode the exploit--explore
+tension natively: \eqref{eq:prag} favours ports that serve well now,
+\eqref{eq:epis} favours ports that most reduce uncertainty for later, and
+$\beta_w$ sets the balance.
+
+\subsection{Greedy Selection}
+Exact minimization of \eqref{eq:efe} is combinatorial. We build the sets
+greedily, adding at each step the port whose inclusion most decreases $G$,
+\begin{equation}
+  p^{\star} = \argmax_{p\notin\mathcal{S}}\;
+    \Big[\,G(\mathcal{S}) - G\big(\mathcal{S}\cup\{p\}\big)\,\Big],
+  \label{eq:greedy}
+\end{equation}
+until $|\mathcal{S}|=M$. The map
+$\mathcal{Q}\mapsto\mathrm{Epis}(\mathcal{Q})$ in \eqref{eq:epis} is monotone
+and submodular and the switching term is modular, so \eqref{eq:greedy} attains
+the standard $(1-1/e)$ guarantee on the information-driven part at
+$\mathcal{O}(NM)$ score evaluations per slot. The pilot set is then taken as
+the $m$ activated ports of largest posterior variance,
+\begin{equation}
+  \mathcal{Q}_t = \argmax_{\mathcal{Q}\subseteq\mathcal{S}_t,\,|\mathcal{Q}|=m}
+    \;\sum_{n\in\mathcal{Q}}\sum_{k=1}^{K}\big[\bSig_k\big]_{nn},
+  \label{eq:pilotsel}
+\end{equation}
+which spends the pilot budget where the belief is least certain.
 
 %==============================================================================
 \section{Online Doppler Learning}
 \label{sec:learn}
-\todo{Matched-window ACF estimator; order selection; why a parametric Jakes
-fit fails in closed loop.}
+
+Sections~\ref{sec:model}--\ref{sec:efe} assume the Doppler rate $f_D$, and
+hence $\mathbf{a}$, are known. We now remove that assumption. Since the policy
+holds ports across slots, the pilots themselves carry lagged pairs from which
+the temporal autocorrelation can be estimated. For lag $\tau$, let
+$\mathcal{P}_\tau=\{(t,n):n\in\mathcal{Q}_t\cap\mathcal{Q}_{t-\tau}\}$ be the
+co-piloted pairs. The estimator normalizes each lag by the power of the
+\emph{same} sample pairs,
+\begin{equation}
+  \hat{r}(\tau) =
+  \frac{\sum_{(t,n)\in\mathcal{P}_\tau}\sum_{k}
+        \Re\big\{y_{k,n}(t)\,y_{k,n}^{*}(t-\tau)\big\}}
+       {\sum_{(t,n)\in\mathcal{P}_\tau}\sum_{k}
+        \tfrac{1}{2}\big(|y_{k,n}(t)|^2+|y_{k,n}(t-\tau)|^2\big)
+        - \sigma_e^2},
+  \label{eq:acf}
+\end{equation}
+where the subtraction removes the pilot-noise floor. Matching the numerator and
+denominator sample sets is essential: the pooled alternative, in which the
+denominator averages over \emph{all} samples, is a ratio of sums drawn from
+different sets, and Jensen's inequality inflates it by $\mathcal{O}(r/n_\tau)$.
+At the effective sample counts available here ($n_\tau$ of order tens) that
+bias is $+0.034$ in $\hat{r}(1)$, which \eqref{eq:acf} removes.
+
+Each lag carries an uncertainty, quantified by Bartlett's formula
+\begin{equation}
+  \mathrm{se}(\tau)^2 \;\approx\;
+  \frac{1+2\sum_{j<\tau}\hat{r}(j)^2}{n_\tau},
+  \qquad n_\tau=|\mathcal{P}_\tau| .
+  \label{eq:bartlett}
+\end{equation}
+Feeding $\hat{\mathbf{r}}$ directly into \eqref{eq:yw} fails: the estimated
+$\hat{\boldsymbol{\Gamma}}$ is ill-conditioned, and the resulting coefficients
+are both large in norm and badly overconfident about the innovation variance.
+We therefore regularize by the estimator's own uncertainty and select the order
+from the data,
+\begin{equation}
+  \big(\hat{\boldsymbol{\Gamma}}_q+\delta\bI_q\big)\mathbf{a}_q=\hat{\mathbf{r}}_q,
+  \qquad
+  \delta=\sum_{\tau=1}^{p}\mathrm{se}(\tau)^2,
+  \label{eq:ridge}
+\end{equation}
+\begin{equation}
+  q^{\star} = \argmin_{1\le q\le p}\;
+  \operatorname{med}_{b}\Big\{
+    \mathbf{a}_q^{(b)}\ \text{incurred error under}\ \hat{\mathbf{r}}^{(b)}
+  \Big\},
+  \label{eq:order}
+\end{equation}
+where $b$ indexes $B$ bootstrap draws $\hat{\mathbf{r}}^{(b)}$ generated from
+\eqref{eq:bartlett}. The selected coefficients are zero-padded to length $p$.
+No constant in \eqref{eq:ridge}--\eqref{eq:order} is tuned: $\delta$ is read off
+the data through \eqref{eq:bartlett}, and $q^\star$ is chosen by the incurred
+error rather than by an information criterion. When the pilots are too few to
+resolve a high order, \eqref{eq:order} returns a low one --- refusing the model
+it cannot support is the mechanism that keeps the closed loop stable.
 
 %==============================================================================
 \section{Numerical Results}
