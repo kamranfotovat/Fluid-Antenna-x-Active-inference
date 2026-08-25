@@ -1,0 +1,134 @@
+%=============================================================================
+%  Active Inference for Joint Port Selection and Pilot Allocation in FAS
+%  Target: IEEE Wireless Communications Letters (5 pages incl. references)
+%  arXiv preprint first.
+%
+%  BUILD:  latexmk -pdf main.tex        (or: pdflatex main; bibtex main; pdflatex x2)
+%=============================================================================
+\documentclass[journal]{IEEEtran}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,allcolors=blue]{hyperref}
+
+% ---- editorial markers: delete before submission -------------------------
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
+\newcommand{\note}[1]{\textcolor{blue}{\textit{[#1]}}}
+
+% ---- notation shorthands -------------------------------------------------
+\newcommand{\bh}{\mathbf{h}}
+\newcommand{\bH}{\mathbf{H}}
+\newcommand{\bR}{\mathbf{R}}
+\newcommand{\bI}{\mathbf{I}}
+\newcommand{\bW}{\mathbf{W}}
+\newcommand{\bP}{\mathbf{P}}
+\newcommand{\bF}{\mathbf{F}}
+\newcommand{\bmu}{\boldsymbol{\mu}}
+\newcommand{\bSig}{\boldsymbol{\Sigma}}
+\newcommand{\CN}{\mathcal{CN}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\bbC}{\mathbb{C}}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\begin{document}
+
+\title{Active Inference for Joint Port Selection and\\
+       Pilot Allocation in Fluid Antenna Systems}
+
+\author{Kian~Fotovat%
+  \thanks{K. Fotovat is with the Department of Electrical and Computer
+  Engineering, University of Tehran, Tehran, Iran (e-mail:
+  \mbox{amirfotovvat7@gmail.com}).}%
+  \note{co-author list to finalize}%
+}
+
+\maketitle
+
+%==============================================================================
+\begin{abstract}
+\note{DRAFT --- rewrite last, once the results section is frozen.}
+Fluid antenna systems (FAS) obtain spatial degrees of freedom by activating a
+small subset of a dense grid of candidate ports, but selecting that subset
+presupposes channel knowledge across ports that are never observed. Existing
+port-selection methods assume full or near-full channel state information (CSI)
+and treat pilot overhead as exogenous. We instead formulate port selection and
+pilot allocation jointly as \emph{active inference}: a spatio-temporal
+generative model maintains a Gaussian belief over all $N$ port channels, and
+the transmitter selects both the ports it serves and the ports it pilots by
+minimizing an expected free energy (EFE) that trades achievable rate against
+information gain and port-switching cost. \todo{one sentence on the temporal
+model / online Doppler learning} On a $21\times21$ port grid, the proposed
+scheme attains a higher sum rate while piloting only $60\%$ of the active ports
+than a memoryless baseline piloting all of them, and recovers $83\%$ of the
+oracle rate when the Doppler rate is unknown and learned online.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Fluid antenna systems, port selection, active inference, expected free energy,
+pilot allocation, partial CSI.
+\end{IEEEkeywords}
+
+%==============================================================================
+\section{Introduction}
+\label{sec:intro}
+\todo{Para 1: FAS context --- ports, spatial DoF, RF-chain budget.}
+
+\todo{Para 2: the acquisition problem --- scoring $N$ ports needs CSI at $N$
+ports; overhead grows with the grid.}
+
+\todo{Para 3: prior work and the gap --- learning-based selection (DRL,
+bandits) assumes full CSI; FAS channel estimation solves \emph{estimation},
+not the \emph{decision}. No prior work allocates pilots as part of the
+selection decision.}
+
+\todo{Para 4: contributions, as a bulleted list.}
+
+%==============================================================================
+\section{System Model}
+\label{sec:model}
+\todo{Geometry and port grid; spatial correlation $\bR$; multiuser downlink;
+hybrid transmit front end; per-slot protocol timeline.}
+
+%==============================================================================
+\section{Generative Model and Belief}
+\label{sec:belief}
+\todo{Spatio-temporal state-space model; AR($p$) temporal prior; Kalman
+recursion; partial observation via selection matrix; reduced-rank
+implementation.}
+
+%==============================================================================
+\section{Expected Free Energy and Selection}
+\label{sec:efe}
+\todo{EFE objective; pragmatic / epistemic / switching terms; submodularity
+and the greedy guarantee; joint selection of served and piloted ports.}
+
+%==============================================================================
+\section{Online Doppler Learning}
+\label{sec:learn}
+\todo{Matched-window ACF estimator; order selection; why a parametric Jakes
+fit fails in closed loop.}
+
+%==============================================================================
+\section{Numerical Results}
+\label{sec:results}
+\todo{Setup table; pilot--rate trade-off figure; Doppler-learning figure;
+baselines.}
+
+%==============================================================================
+\section{Conclusion}
+\label{sec:conc}
+\todo{}
+
+%==============================================================================
+% TEMPORARY: the skeleton cites nothing yet, and an empty thebibliography is a
+% LaTeX error. DELETE this \nocite once the Introduction has real \cite calls.
+\nocite{*}
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}
