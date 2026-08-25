@@ -58,13 +58,18 @@
 
 \begin{document}
 
-\title{Active Inference for Joint Port Selection and\\
-       Pilot Allocation in Fluid Antenna Systems}
+\title{Active Inference for Joint Port Selection and Pilot\\
+       Allocation in Fluid Antenna Systems Under Partial CSI}
 
-\author{Kian~Fotovat$^{1}$ and Kamran~Fotovat$^{2}$%
+% VERIFY before submission: (i) Zijun Wang's department -- listed here as
+% Electrical Engineering, not confirmed; (ii) that all co-authors have agreed
+% to authorship and to the submission venue.
+\author{Kian~Fotovat$^{1}$, Kamran~Fotovat$^{2}$, and Zijun~Wang$^{3}$%
   \thanks{$^{1}$Dept.\ of Electrical and Computer Engineering, University of
   Tehran, Tehran, Iran.}%
   \thanks{$^{2}$Iran University of Science and Technology, Tehran, Iran.}%
+  \thanks{$^{3}$Dept.\ of Electrical Engineering, University at Buffalo, The
+  State University of New York, Buffalo, NY, USA.}%
 }
 
 \maketitle
@@ -292,203 +297,146 @@ Its difficulty is that $R_k(t)$ depends on the channel at ports that
 inference.
 
 %==============================================================================
-\section{Active Inference for Port Selection}
+\section{Active Inference for Port Selection and Pilot Allocation}
 \label{sec:aif}
 
-We now cast port selection as active inference. The agent holds a generative
-model of the channel, maintains a Bayesian belief over all ports (perception),
-and each slot chooses the port set that minimizes an expected free energy
-(action), which trades expected rate against information gain and switching
-cost within one objective.
-
-\subsection{Generative Model}
-The latent state is the full channel $\{\bh_k(t)\}$, of which only the
-activated ports are observed. The agent's generative model factorizes over
-users and time as
-\begin{equation}
-  \begin{split}
-    p\big(\{\bh_k,\by_k\}\big) = \prod_{k}p\big(\bh_k(0)\big)\prod_{t}\;
-      & p\big(\bh_k(t)\,|\,\bh_k(t-1)\big)\\[-2pt]
-      & \times\;p\big(\by_k(t)\,|\,\bh_k(t),\mathcal{S}_t\big),
-  \end{split}
-  \label{eq:gen}
-\end{equation}
-with three ingredients already fixed by the physics of
-Section~\ref{sec:model}: the prior $p(\bh_k(0))=\CN(\mathbf{0},\beta_k\bR)$;
-the transition $p(\bh_k(t)|\bh_k(t-1))$ given by the AR(1) dynamics
-\eqref{eq:ar}; and the likelihood $p(\by_k(t)|\bh_k(t),\mathcal{S}_t)$ given
-by the partial observation \eqref{eq:obs}. Preferences complete the model.
-Unlike textbook active inference, in which preferred outcomes are encoded in a
-hand-tuned vector, here the preference is the communication utility itself ---
-the achievable rate net of switching in \eqref{eq:problem}. There is thus no
-arbitrary preference to set: the agent's goal is the system objective.
+We now cast the problem as active inference. The agent holds a generative model
+of the channel, maintains a Bayesian belief over all $N$ ports (perception),
+and each slot chooses the activated set and the pilot subset that minimize an
+expected free energy (action). The generative model needs no new ingredients:
+the prior is $\CN(\mathbf{0},\beta_k\bR)$, the transition is the AR($p$)
+dynamics \eqref{eq:ar}, and the likelihood is the partial observation
+\eqref{eq:obs}. Preferences complete it, and here they are not a hand-tuned
+vector as in textbook active inference but the communication utility itself ---
+the rate net of switching in \eqref{eq:problem} --- so there is no arbitrary
+preference to set.
 
 \subsection{Perception: Complex Kalman Belief}
-Because the model is linear-Gaussian, the exact posterior over each user's
-channel is Gaussian, $q(\bh_k)=\CN(\bmu_k,\bSig_k)$, maintained by a per-user
-complex Kalman filter with two steps per slot. The predict step propagates the
-belief through the AR(1) dynamics, encoding channel aging,
+Stacking the last $p$ snapshots into
+$\bz_k(t)=[\bh_k(t)^{\mathrm{T}},\dots,\bh_k(t-p+1)^{\mathrm{T}}]^{\mathrm{T}}
+\in\bbC^{pN}$ turns \eqref{eq:ar} into a first-order recursion
+$\bz_k(t)=\bF\bz_k(t-1)+\boldsymbol{\epsilon}_k(t)$, with
+$\bF=\mathbf{C}_{\mathbf{a}}\otimes\bI_N$ for $\mathbf{C}_{\mathbf{a}}$ the
+companion matrix of $\mathbf{a}$, and process noise
+$(\mathbf{e}_1\mathbf{e}_1^{\mathrm{T}})\otimes(\sigma_v^2\beta_k\bR)$ confined
+to the current-time block. Observation \eqref{eq:obs} reads
+$\by_k(t)=\mathbf{G}\bz_k(t)+\bn_k(t)$ with
+$\mathbf{G}=[\,\bP_{\mathcal{Q}_t}\;\;\mathbf{0}\,]$: pilots see the current
+channel only.
+
+The model is linear-Gaussian, so the exact posterior is Gaussian,
+$q(\bz_k)=\CN(\hat{\bz}_k,\bP_k)$, maintained by a per-user complex Kalman
+filter. The predict step propagates the belief through the AR dynamics,
+encoding channel aging,
 \begin{equation}
-  \bmu_k \leftarrow \rho\,\bmu_k,
+  \hat{\bz}_k \leftarrow \bF\hat{\bz}_k,
   \qquad
-  \bSig_k \leftarrow \rho^2\bSig_k+(1-\rho^2)\beta_k\bR .
+  \bP_k \leftarrow \bF\bP_k\bF^{\mathrm{H}} + \mathbf{Q}_k ,
   \label{eq:predict}
 \end{equation}
-When the ports in $\mathcal{S}_t$ are activated and $\by_k$ observed, the
-measurement update corrects the belief. With Kalman gain
-\begin{equation}
-  \mathbf{K}_k = \bSig_k\bP_{\mathcal{S}}^{\mathrm{H}}
-    \left(\bP_{\mathcal{S}}\bSig_k\bP_{\mathcal{S}}^{\mathrm{H}}
-      +\sigma_e^2\bI_M\right)^{-1},
-  \label{eq:gain}
-\end{equation}
-the posterior mean and covariance become
-\begin{equation}
-  \bmu_k \leftarrow \bmu_k
-    + \mathbf{K}_k\big(\by_k-\bP_{\mathcal{S}}\bmu_k\big),
-  \label{eq:mean}
-\end{equation}
-\begin{equation}
-  \bSig_k \leftarrow
-    \big(\bI-\mathbf{K}_k\bP_{\mathcal{S}}\big)\bSig_k
-    \big(\bI-\mathbf{K}_k\bP_{\mathcal{S}}\big)^{\mathrm{H}}
-    + \sigma_e^2\mathbf{K}_k\mathbf{K}_k^{\mathrm{H}} .
+and the pilots on $\mathcal{Q}_t$ correct it through the Kalman gain
+$\mathbf{K}_k=\bP_k\mathbf{G}^{\mathrm{H}}
+(\mathbf{G}\bP_k\mathbf{G}^{\mathrm{H}}+\sigma_e^2\bI_m)^{-1}$,
+\begin{align}
+  \hat{\bz}_k &\leftarrow \hat{\bz}_k
+     + \mathbf{K}_k\big(\by_k-\mathbf{G}\hat{\bz}_k\big),
+  \label{eq:mean}\\
+  \bP_k &\leftarrow
+     \big(\bI-\mathbf{K}_k\mathbf{G}\big)\bP_k
+     \big(\bI-\mathbf{K}_k\mathbf{G}\big)^{\mathrm{H}}
+     + \sigma_e^2\mathbf{K}_k\mathbf{K}_k^{\mathrm{H}} .
   \label{eq:joseph}
-\end{equation}
-where the Joseph form \eqref{eq:joseph} keeps $\bSig_k$ symmetric positive
-semidefinite. Only the $M\times M$ innovation covariance is inverted, and it is
-regularized by $\sigma_e^2\bI$; consequently the rank-deficient spatial prior
-$\bR$ needs no artificial jitter. Crucially, observing a port also shrinks the
-uncertainty of its correlated neighbours through the off-diagonals of $\bR$ and
-$\bSig_k$, so a few measurements inform many ports. The filter is calibrated:
-its predicted covariance matches the realized estimation error.
+\end{align}
+Only the $m\times m$ innovation covariance is inverted, regularized by
+$\sigma_e^2\bI_m$, so the rank-deficient $\bR$ needs no artificial jitter, and
+the Joseph form \eqref{eq:joseph} keeps $\bP_k$ Hermitian positive
+semidefinite. The belief over the current channel is the leading block,
+$\bmu_k=\boldsymbol{\Pi}\hat{\bz}_k$ and
+$\bSig_k=\boldsymbol{\Pi}\bP_k\boldsymbol{\Pi}^{\mathrm{H}}$ with
+$\boldsymbol{\Pi}=[\,\bI_N\;\;\mathbf{0}\,]$. Two couplings then do the work,
+and together they are what permit $m<M$: spatially the off-diagonals of $\bR$
+carry a measurement to a port's neighbours, so $m$ pilots inform far more than
+$m$ ports, and temporally \eqref{eq:predict} carries information across slots,
+so a port piloted earlier retains a usable estimate now.
+
+\subsection{Exact Reduced-Rank Belief}
+Carrying $\bP_k\in\bbC^{pN\times pN}$ is infeasible at our scale --- $N=441$,
+$p=4$ give a $1764\times1764$ covariance per user per slot --- and also
+unnecessary. Truncating $\bR=\bB\boldsymbol{\Lambda}\bB^{\mathrm{H}}$ to the
+$r$ eigenvalues carrying all but $10^{-6}$ of the energy, and noting
+$\bh_k(t)\in\mathrm{range}(\bR)$ for every $t$, the factorization
+$\bh_k(t)=\bB\,\mathbf{c}_k(t)$ with $\mathbf{c}_k(t)\in\bbC^{r}$ holds
+\emph{exactly}, so $\mathbf{c}_k$ is a sufficient statistic. The AR dynamics
+act identically on every port and carry over with $\bI_N$ replaced by $\bI_r$;
+the state falls from $pN$ to $pr$ and the per-slot cost from
+$\mathcal{O}((pN)^3)$ to $\mathcal{O}((pr)^3)$. At $N=441$ the numerical rank
+is $r=26$: some $4.9\times10^{3}$ less arithmetic at no modelling cost.
 
 \subsection{Action: Expected Free Energy}
-Each slot the agent scores a candidate port set $\mathcal{S}$ by its expected
-free energy, written here as a value to be minimized,
+Each slot the agent scores a candidate pair $(\mathcal{S},\mathcal{Q})$ by its
+expected free energy, a value to be minimized,
 \begin{equation}
-  G(\mathcal{S}) = -\,\mathrm{Prag}(\mathcal{S})
-    -\kappa\,\mathrm{Epis}(\mathcal{S})
-    +\eta_{\mathrm{sw}}E_{\mathrm{sw}}(\mathcal{S}),
+  G(\mathcal{S},\mathcal{Q}) =
+   -\,\alpha\,\mathrm{Prag}(\mathcal{S})
+   -\,\beta_w\,\mathrm{Epis}(\mathcal{Q})
+   +\,\eta_{\mathrm{sw}}\big|\mathcal{S}\,\triangle\,\mathcal{S}_{t-1}\big| .
   \label{eq:efe}
 \end{equation}
-a pragmatic (goal) term, an epistemic (information) term weighted by an
-exploration weight $\kappa\ge0$, and the switching cost $C_t$ of
-Section~\ref{sec:model}-E.
-The pragmatic value is the expected sum rate the belief predicts for
-$\mathcal{S}$ under the robust MMSE precoder; accounting for residual CSI error
-through the belief covariance gives the imperfect-CSI lower bound
+The pragmatic value is the sum rate the belief predicts under the robust MMSE
+precoder, penalized by its own residual uncertainty. With
+$\bmu_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bmu_k$,
+$\bSig_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bSig_k\bP_{\mathcal{S}}^{\mathrm{H}}$,
 \begin{equation}
   \mathrm{Prag}(\mathcal{S}) = \sum_{k}
     \log_2\!\left(1+
-      \frac{\big|\bmu_{k,\mathcal{S}}^{\mathrm{H}}\bw_k\big|^2}
-           {\mathcal{I}_k}\right),
+    \frac{\big|\bmu_{k,\mathcal{S}}^{\mathrm{H}}\bw_k\big|^2}{\mathcal{I}_k}
+    \right),
   \label{eq:prag}
 \end{equation}
 \begin{equation}
-  \mathcal{I}_k = \sum_{j\neq k}
-      \big|\bmu_{k,\mathcal{S}}^{\mathrm{H}}\bw_j\big|^2
+  \mathcal{I}_k =
+    \sum_{j\neq k}\big|\bmu_{k,\mathcal{S}}^{\mathrm{H}}\bw_j\big|^2
     + \sum_{j}\bw_j^{\mathrm{H}}\bSig_{k,\mathcal{S}}\bw_j
-    + \sigma^2,
+    + \sigma^2 .
   \label{eq:leak}
 \end{equation}
-where $\bmu_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bmu_k$,
-$\bSig_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bSig_k\bP_{\mathcal{S}}^{\mathrm{H}}$,
-and the error term $\sum_j\bw_j^{\mathrm{H}}\bSig_{k,\mathcal{S}}\bw_j$ makes
-the agent conservative when uncertain; the robust MMSE precoder augments the
-filter of Section~\ref{sec:model}-D with $\bSig_{k,\mathcal{S}}$. The epistemic
-value is the mutual
-information between the channel and the pilots that $\mathcal{S}$ would yield,
-i.e., the expected reduction in belief entropy,
+The middle term of \eqref{eq:leak} makes the agent conservative when uncertain:
+a port with large posterior variance contributes interference the precoder
+cannot null. It bites hardest at the $M-m$ ports served without being piloted,
+so \eqref{eq:prag} already prices the cost of not measuring them. The epistemic
+value is the mutual information the pilots on $\mathcal{Q}$ would yield,
 \begin{equation}
-  \mathrm{Epis}(\mathcal{S}) = \sum_{k}
-    \log_2\det\!\left(\bI_M
-      + \frac{\bP_{\mathcal{S}}\bSig_k\bP_{\mathcal{S}}^{\mathrm{H}}}
-             {\sigma_e^2}\right),
+  \mathrm{Epis}(\mathcal{Q}) = \sum_{k}
+    \log_2\det\!\left(\bI_{m}
+      + \sigma_e^{-2}\,
+      \bP_{\mathcal{Q}}\bSig_k\bP_{\mathcal{Q}}^{\mathrm{H}}\right).
   \label{eq:epis}
 \end{equation}
-which is monotone and submodular in $\mathcal{S}$; through the correlation in
-$\bSig_k$, activating one port also gathers information about others. The two
-terms embody the exploit--explore tension natively: the pragmatic value favours
-ports that serve well now, the epistemic value favours ports that most reduce
-uncertainty for later, and $\kappa$ sets the balance --- no separate
-exploration heuristic is bolted on.
+Being a log-determinant rather than a sum of marginal variances,
+\eqref{eq:epis} prices redundancy: two candidates that are both uncertain
+\emph{and} strongly correlated carry nearly the same information, so the second
+earns little once the first is measured.
 
-\subsection{Observe-Then-Precode Protocol}
-The order of operations within a slot matters. We adopt an observe-then-precode
-protocol: (i) predict the belief; (ii) select $\mathcal{S}_t$ by minimizing $G$
-on the predicted belief; (iii) activate $\mathcal{S}_t$, obtain the pilots
-$\by_k$, and update the belief; and (iv) form the robust MMSE precoder from the
-updated belief and transmit. Because the served ports are re-measured before
-precoding, their posterior error is about $\sigma_e^2$ rather than the one-step
-aging floor $(1-\rho^2)\beta_k$ that a predict-then-act ordering incurs. As
-shown in Section~\ref{sec:results}, this makes the served rate nearly
-independent of Doppler.
-
-\subsection{Greedy Submodular Selection}
-Selecting the best $M$-of-$N$ set exactly is combinatorial. We instead build
-$\mathcal{S}_t$ greedily: starting from the empty set, we repeatedly add the
-port whose inclusion most decreases $G$,
+\subsection{Greedy Selection of Both Sets}
+Exact minimization of \eqref{eq:efe} is combinatorial in both arguments, so we
+build the sets greedily, each step adding the port whose inclusion most
+decreases $G$,
 \begin{equation}
   p^{\star} = \argmax_{p\notin\mathcal{S}}\;
-    \Big[\,G(\mathcal{S})-G\big(\mathcal{S}\cup\{p\}\big)\,\Big],
+    \Big[\,G(\mathcal{S}) - G\big(\mathcal{S}\cup\{p\}\big)\,\Big],
   \label{eq:greedy}
 \end{equation}
-until $|\mathcal{S}|=M$. Since the epistemic term is monotone submodular and
-the switching term modular, greedy selection attains the standard $(1-1/e)$
-near-optimality guarantee on the information-driven part, at
-$\mathcal{O}(NM)$ score evaluations per slot --- about 20\,ms in our setting
-versus seconds for exhaustive search, a roughly $500\times$ reduction.
-Algorithm~\ref{alg:aif} summarizes the complete per-slot agent, with the greedy
-loop (lines 3--8) embedded in the observe-then-precode ordering of
-Section~\ref{sec:aif}-D.
-
-\begin{algorithm}[t]
-\caption{Active-Inference Port Selection (slot $t$)}
-\label{alg:aif}
-\begin{algorithmic}[1]
-\REQUIRE predicted belief $\{\bmu_k,\bSig_k\}$, previous set
-         $\mathcal{S}_{t-1}$, budget $M$, weight $\kappa$
-\ENSURE  activated set $\mathcal{S}_t$ and precoder $\bW$
-\STATE predict belief: $\bmu_k\leftarrow\rho\bmu_k$,
-       $\bSig_k\leftarrow\rho^2\bSig_k+(1-\rho^2)\beta_k\bR$ $\;\forall k$
-\STATE $\mathcal{S}\leftarrow\emptyset$
-\FOR{$m=1$ \TO $M$}
-  \FOR{each candidate port $p\notin\mathcal{S}$}
-    \STATE $\Delta(p)\leftarrow G(\mathcal{S})-G(\mathcal{S}\cup\{p\})$
-           \hfill $\triangleright$ via \eqref{eq:efe}--\eqref{eq:epis}
-  \ENDFOR
-  \STATE $p^{\star}\leftarrow\argmax_p\Delta(p)$;\;
-         $\mathcal{S}\leftarrow\mathcal{S}\cup\{p^{\star}\}$
-\ENDFOR
-\STATE $\mathcal{S}_t\leftarrow\mathcal{S}$
-\STATE activate $\mathcal{S}_t$, observe pilots $\by_k$, update belief
-       \hfill $\triangleright$ via \eqref{eq:gain}--\eqref{eq:joseph}
-\STATE $\bW\leftarrow$ robust MMSE precoder from updated
-       $\{\bmu_k,\bSig_k\}$
-\STATE transmit; incur switching cost
-       $\eta_{\mathrm{sw}}\cdot|\mathcal{S}_t\,\triangle\,\mathcal{S}_{t-1}|$
-\end{algorithmic}
-\end{algorithm}
-
-\subsection{Online Learning of the Spatial Correlation}
-The agent assumes a Jakes $\bR$, but real propagation may differ. When $\bR$ is
-unknown or non-Jakes it can be learned online from the accumulated pilots:
-averaging the outer products of co-observed pilots and removing the noise floor
-gives
-\begin{equation}
-  \hat{R}_{ij} = \frac{\sum_t \mathbf{1}\{i,j\in\mathcal{S}_t\}\,
-                       y_i(t)\,y_j^{*}(t)}
-                      {\sum_t \mathbf{1}\{i,j\in\mathcal{S}_t\}}
-                 - \sigma_e^2\,\delta_{ij},
-  \label{eq:learnR}
-\end{equation}
-which is then normalized to unit diagonal (cancelling the per-user power
-$\beta_k$) and projected onto the positive-semidefinite cone. Substituting
-$\hat{\bR}$ for $\bR$ restores performance under model mismatch
-(Section~\ref{sec:results}); in the matched case the belief is already
-Bayes-optimal, so learning can only help --- consistent with the method's
-zero-training nature.
+until $|\mathcal{S}_t|=M$; the pilot subset is then built the same way,
+greedily maximizing \eqref{eq:epis} over $\mathcal{Q}\subseteq\mathcal{S}_t$
+until $|\mathcal{Q}_t|=m$. Both sets follow from one objective, with no
+separate sensing heuristic. Since $\mathrm{Epis}$ is monotone and submodular
+and the switching term modular, greedy attains the standard $(1-1/e)$ guarantee
+on the information-driven part, at $\mathcal{O}(NM)$ evaluations per slot for
+$\mathcal{S}_t$ and $\mathcal{O}(Mm)$ for $\mathcal{Q}_t$. Order within the
+slot matters: we predict, select, pilot, update, and only then precode and
+transmit (Fig.~\ref{fig:timeline}), so that the piloted ports carry a posterior
+error of about $\sigma_e^2$ rather than the one-step aging floor a
+predict-then-transmit ordering would incur.
 
 %==============================================================================
 \section{Numerical Results}

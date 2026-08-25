@@ -37,6 +37,8 @@ T = int(sys.argv[2]) if len(sys.argv) > 2 else 40
 FD = 0.10
 P_AR = 4
 M_LIST = [2, 4, 6, 8, 10]
+PILOT_RULE = "epistemic"      # what Section III describes; verify_pilot_rule.py A/B says
+                              # it ties the old max-variance heuristic (+0.02 at m=6, se 0.12)
 HALF = slice(T // 2, None)
 OUT = Path(__file__).resolve().parent.parent / "results_tm" / "fig2_pilot_sweep.json"
 
@@ -61,7 +63,7 @@ def main() -> int:
             bel = STKalmanBeliefLR(R, OP.beta, FD, P_AR, OP.sigma_e2)
             proto = "observe" if m >= OP.M else "partial"
             out = run_st(bel, H, OP, np.random.default_rng(200 + s),
-                         protocol=proto, m_sense=m)
+                         protocol=proto, m_sense=m, pilot_rule=PILOT_RULE)
             rates[m].append(float(out["rate"][HALF].mean()))
         print(f"  seed {s} done ({time.perf_counter()-t0:.0f}s)  "
               + "  ".join(f"m={m}:{rates[m][-1]:.2f}" for m in M_LIST), flush=True)
@@ -71,6 +73,7 @@ def main() -> int:
         OUT.write_text(json.dumps({
             "meta": {"MC_done": s + 1, "MC_target": MC, "T": T, "fd": FD, "p": P_AR,
                      "m_list": M_LIST, "op": OP.label(), "n_rf": OP.n_rf,
+                     "pilot_rule": PILOT_RULE,
                      "half": f"slots {T//2}..{T-1}"},
             "genie": genie,
             "rates": {str(m): v for m, v in rates.items()},
