@@ -1,3 +1,25 @@
 FIG-3 DATA (objective frontier)  MC=8, T=40, m=6, eta sweep [0.0, 0.5, 1.0, 2.0, 4.0, 8.0]
   N=441 (21x21), 2x2 lambda, K=3, M=10, n_rf=6, d_min=off, 15 dB, rho=0.9, beta_w=0.25
 
+  seed 0 (235s)  eta=0: 17.85r/18.70s  eta=0.5: 17.91r/11.80s  eta=1: 18.37r/6.60s  eta=2: 18.96r/0.70s  eta=4: 18.27r/0.00s  eta=8: 18.27r/0.00s
+  seed 1 (476s)  eta=0: 18.03r/19.00s  eta=0.5: 17.83r/11.80s  eta=1: 18.54r/6.50s  eta=2: 18.06r/0.90s  eta=4: 18.00r/0.00s  eta=8: 18.00r/0.00s
+  seed 2 (717s)  eta=0: 17.43r/18.80s  eta=0.5: 17.56r/11.40s  eta=1: 18.18r/6.50s  eta=2: 18.47r/0.80s  eta=4: 17.70r/0.00s  eta=8: 17.70r/0.00s
+  seed 3 (957s)  eta=0: 17.53r/19.10s  eta=0.5: 17.98r/11.80s  eta=1: 18.91r/6.30s  eta=2: 18.56r/0.90s  eta=4: 18.42r/0.00s  eta=8: 18.42r/0.00s
+  seed 4 (1199s)  eta=0: 17.53r/18.80s  eta=0.5: 17.78r/11.90s  eta=1: 18.62r/6.50s  eta=2: 18.45r/0.70s  eta=4: 18.36r/0.00s  eta=8: 18.36r/0.00s
+  seed 5 (1664s)  eta=0: 17.55r/18.90s  eta=0.5: 17.97r/11.60s  eta=1: 18.89r/6.10s  eta=2: 18.54r/0.80s  eta=4: 17.93r/0.00s  eta=8: 17.93r/0.00s
+  seed 6 (2462s)  eta=0: 17.44r/18.90s  eta=0.5: 17.17r/11.30s  eta=1: 18.34r/6.50s  eta=2: 17.71r/0.80s  eta=4: 17.90r/0.00s  eta=8: 17.90r/0.00s
+  seed 7 (3130s)  eta=0: 17.54r/18.90s  eta=0.5: 17.35r/11.40s  eta=1: 18.15r/6.50s  eta=2: 18.32r/0.90s  eta=4: 17.49r/0.00s  eta=8: 17.49r/0.00s
+
+ eta_sw |    rate |  switches/slot |  objective (eta=1)
+--------------------------------------------------------
+      0 |  17.613 |          18.89 |             -1.275
+    0.5 |  17.691 |          11.62 |              6.066
+      1 |  18.501 |           6.44 |             12.064
+      2 |  18.385 |           0.81 |             17.572
+      4 |  18.010 |           0.00 |             18.010
+      8 |  18.010 |           0.00 |             18.010
+  genie |  22.116 |          15.34 |              6.779
+
+switching spread across the eta sweep: 18.89 ports/slot
+
+wrote C:\Users\kian\ACTIVEINF\Fluid-Antenna-x-Active-inference\results_tm\fig3_frontier.json  (3130s)

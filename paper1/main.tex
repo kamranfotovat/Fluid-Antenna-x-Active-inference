@@ -484,8 +484,25 @@ predict-then-transmit ordering would incur.
   \label{fig:pilots}
 \end{figure}
 
-\todo{Setup paragraph, discussion of Fig.~\ref{fig:pilots}, hybrid $n_{\rm RF}$
-sweep, baselines.}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figs/fig3_frontier.pdf}
+  \caption{Sum rate against reconfiguration cost as the switching weight
+  $\eta_{\mathrm{sw}}$ is swept, at $m=6$ over 8 realizations. Dotted lines are
+  iso-objective contours of \eqref{eq:problem} at $\eta_{\mathrm{sw}}=1$; the
+  two dashed contours pass through the genie and through our best operating
+  point. The frontier is nearly flat --- the agent moves from $18.9$
+  reconfigured ports per slot down to none while the sum rate varies by
+  $0.89$\,bits/s/Hz, and in fact \emph{peaks} at $\eta_{\mathrm{sw}}=1$ rather
+  than at $\eta_{\mathrm{sw}}=0$: holding a port lets its belief sharpen, so
+  some reluctance to move buys rate instead of costing it. The genie leads on
+  raw rate but lies on a far worse contour, and is beaten on the objective for
+  any $\eta_{\mathrm{sw}}>0.27$.}
+  \label{fig:frontier}
+\end{figure}
+
+\todo{Setup paragraph, discussion of Figs.~\ref{fig:pilots}
+and~\ref{fig:frontier}, hybrid $n_{\rm RF}$ sweep, baselines.}
 
 %==============================================================================
 \section{Conclusion}
