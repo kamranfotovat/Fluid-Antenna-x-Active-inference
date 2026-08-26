@@ -129,6 +129,14 @@ def choose_pilots(bel, idx, m, rule="variance"):
     if rule == "variance":
         var = bel.port_variances()[:, idx].sum(axis=0)
         return sorted(idx[i] for i in np.argsort(var)[::-1][:m])
+    if rule == "exhaustive":
+        # |S| choose m is tiny at our operating point (C(10,6) = 210), so the greedy
+        # step can be checked against the true optimum rather than defended by the
+        # (1-1/e) bound alone. Reference only -- not what the paper proposes.
+        import itertools
+        import efe
+        return list(max(itertools.combinations(sorted(idx), m),
+                        key=lambda q: efe.epistemic_value(bel, q)))
     if rule != "epistemic":
         raise ValueError(f"unknown pilot rule {rule!r}")
 

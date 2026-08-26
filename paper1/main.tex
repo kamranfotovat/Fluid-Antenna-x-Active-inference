@@ -373,17 +373,33 @@ $\mathcal{O}((pN)^3)$ to $\mathcal{O}((pr)^3)$. At $N=441$ the numerical rank
 is $r=26$: some $4.9\times10^{3}$ less arithmetic at no modelling cost.
 
 \subsection{Action: Expected Free Energy}
-Each slot the agent scores a candidate pair $(\mathcal{S},\mathcal{Q})$ by its
-expected free energy, a value to be minimized,
+The expected free energy of a policy is conventionally the sum of two terms: a
+pragmatic term, the expected log-preference over outcomes, and an epistemic
+term rewarding informative actions. Reconfiguration cost does not need a third
+term, because preferences are a modelling choice and ours are simply that the
+agent prefers outcomes with high rate and few port changes,
+\begin{equation}
+  \ln\tilde{p}\big(o_t\,|\,\mathcal{S}\big) \;=\;
+    \sum_{k}R_k(t) \;-\; \eta_{\mathrm{sw}}
+    \big|\mathcal{S}\,\triangle\,\mathcal{S}_{t-1}\big| \;+\; \mathrm{const},
+  \label{eq:pref}
+\end{equation}
+which is exactly the per-slot integrand of the system objective
+\eqref{eq:problem}. The reconfiguration count is deterministic given the
+action, so its expectation is itself and the pragmatic value remains in closed
+form. Scoring a candidate pair $(\mathcal{S},\mathcal{Q})$ therefore needs only
+the canonical two terms,
 \begin{equation}
   G(\mathcal{S},\mathcal{Q}) =
-   -\,\alpha\,\mathrm{Prag}(\mathcal{S})
-   -\,\beta_w\,\mathrm{Epis}(\mathcal{Q})
-   +\,\eta_{\mathrm{sw}}\big|\mathcal{S}\,\triangle\,\mathcal{S}_{t-1}\big| .
+   -\Big[\mathrm{Prag}(\mathcal{S})
+     -\eta_{\mathrm{sw}}\big|\mathcal{S}\,\triangle\,\mathcal{S}_{t-1}\big|\Big]
+   -\,\beta_w\,\mathrm{Epis}(\mathcal{Q}),
   \label{eq:efe}
 \end{equation}
-The pragmatic value is the sum rate the belief predicts under the robust MMSE
-precoder, penalized by its own residual uncertainty. With
+with $\beta_w>0$ an exploration precision. The bracket is the expected
+log-preference \eqref{eq:pref} under the belief. Its first part is the sum rate
+predicted under the robust MMSE precoder, penalized by the belief's own
+residual uncertainty: with
 $\bmu_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bmu_k$,
 $\bSig_{k,\mathcal{S}}=\bP_{\mathcal{S}}\bSig_k\bP_{\mathcal{S}}^{\mathrm{H}}$,
 \begin{equation}
@@ -428,11 +444,19 @@ decreases $G$,
 \end{equation}
 until $|\mathcal{S}_t|=M$; the pilot subset is then built the same way,
 greedily maximizing \eqref{eq:epis} over $\mathcal{Q}\subseteq\mathcal{S}_t$
-until $|\mathcal{Q}_t|=m$. Both sets follow from one objective, with no
-separate sensing heuristic. Since $\mathrm{Epis}$ is monotone and submodular
-and the switching term modular, greedy attains the standard $(1-1/e)$ guarantee
-on the information-driven part, at $\mathcal{O}(NM)$ evaluations per slot for
-$\mathcal{S}_t$ and $\mathcal{O}(Mm)$ for $\mathcal{Q}_t$. Order within the
+until $|\mathcal{Q}_t|=m$. Note that this is sequential greedy, not a ranking:
+because \eqref{eq:epis} is a log-determinant, the worth of a port depends on
+which ports are already in $\mathcal{Q}$. One objective governs both sets:
+eliminating $\mathcal{Q}$ by inner minimization gives a function of
+$\mathcal{S}$ alone,
+$\mathcal{S}_t=\argmin_{\mathcal{S}}\min_{\mathcal{Q}\subseteq\mathcal{S}}G$,
+and choosing the two in sequence approximates that at $\mathcal{O}(NM)$ plus
+$\mathcal{O}(Mm)$ per slot. Since
+$\mathrm{Epis}$ is monotone and submodular and the switching term modular,
+greedy carries the standard $(1-1/e)$ guarantee on the information-driven part;
+in practice it is far tighter, and at this operating point $\binom{M}{m}$ is
+small enough to check against exhaustive search --- greedy returns the exact
+optimum in $95\%$ of slots and never falls below $0.9996$ of it. Order within the
 slot matters: we predict, select, pilot, update, and only then precode and
 transmit (Fig.~\ref{fig:timeline}), so that the piloted ports carry a posterior
 error of about $\sigma_e^2$ rather than the one-step aging floor a

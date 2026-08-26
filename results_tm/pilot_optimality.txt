@@ -1,0 +1,23 @@
+PILOT-SUBSET OPTIMALITY   MC=3, T=20, AR(4), M=10
+  subsets to enumerate per slot: C(10,4)=210, C(10,6)=210, C(10,8)=45
+  N=441 (21x21), 2x2 lambda, K=3, M=10, n_rf=6, d_min=off, 15 dB, rho=0.9, beta_w=0.25
+
+  seed 0 done (21s)
+  seed 1 done (41s)
+  seed 2 done (60s)
+
+  m |  greedy/opt mean |  greedy/opt worst |  greedy == opt |  variance/opt
+----------------------------------------------------------------------------
+  4 |         0.99999  |          0.99988  |     57/60     |      0.99961
+  6 |         0.99998  |          0.99958  |     57/60     |      0.99935
+  8 |         0.99999  |          0.99977  |     57/60     |      0.99967
+
+Gates:
+  [PASS] m=4: greedy beats the (1-1/e) worst-case bound   worst ratio 0.99988 vs bound 0.63212
+  [PASS] m=6: greedy beats the (1-1/e) worst-case bound   worst ratio 0.99958 vs bound 0.63212
+  [PASS] m=8: greedy beats the (1-1/e) worst-case bound   worst ratio 0.99977 vs bound 0.63212
+  [PASS] greedy is within 1% of optimal everywhere   worst ratio over all m and slots 0.99958
+
+============================================================================
+PILOT OPTIMALITY: ALL PASS  (60s)
+============================================================================
