@@ -52,19 +52,24 @@ def main() -> int:
     R = spatial_correlation(OP_V2.positions())        # same geometry as the digital point
     pos = OP.positions()
     rates = {m: [] for m in M_LIST}
+    swits = {m: [] for m in M_LIST}
     genie = []
+    genie_sw = []
     t0 = time.perf_counter()
 
     for s in range(MC):
         H = generate_spacetime_jakes(R, OP.beta, FD, T, OP.K, seed=100 + s)
-        genie.append(float(run_genie(H, OP.M, sigma2=OP.sigma2, P=OP.P, positions=pos,
-                                     d_min=OP.d_min, n_rf=OP.n_rf)["rate"][HALF].mean()))
+        gen = run_genie(H, OP.M, sigma2=OP.sigma2, P=OP.P, positions=pos,
+                        d_min=OP.d_min, n_rf=OP.n_rf)
+        genie.append(float(gen["rate"][HALF].mean()))
+        genie_sw.append(float(gen["switch"][HALF].mean()))
         for m in M_LIST:
             bel = STKalmanBeliefLR(R, OP.beta, FD, P_AR, OP.sigma_e2)
             proto = "observe" if m >= OP.M else "partial"
             out = run_st(bel, H, OP, np.random.default_rng(200 + s),
                          protocol=proto, m_sense=m, pilot_rule=PILOT_RULE)
             rates[m].append(float(out["rate"][HALF].mean()))
+            swits[m].append(float(out["switch"][HALF].mean()))
         print(f"  seed {s} done ({time.perf_counter()-t0:.0f}s)  "
               + "  ".join(f"m={m}:{rates[m][-1]:.2f}" for m in M_LIST), flush=True)
 
@@ -75,8 +80,9 @@ def main() -> int:
                      "m_list": M_LIST, "op": OP.label(), "n_rf": OP.n_rf,
                      "pilot_rule": PILOT_RULE,
                      "half": f"slots {T//2}..{T-1}"},
-            "genie": genie,
+            "genie": genie, "genie_switch": genie_sw,
             "rates": {str(m): v for m, v in rates.items()},
+            "switch": {str(m): v for m, v in swits.items()},
         }, indent=1), encoding="utf-8")
 
     g = float(np.mean(genie))

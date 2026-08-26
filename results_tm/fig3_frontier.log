@@ -1,0 +1,3 @@
+FIG-3 DATA (objective frontier)  MC=8, T=40, m=6, eta sweep [0.0, 0.5, 1.0, 2.0, 4.0, 8.0]
+  N=441 (21x21), 2x2 lambda, K=3, M=10, n_rf=6, d_min=off, 15 dB, rho=0.9, beta_w=0.25
+
