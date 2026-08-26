@@ -465,7 +465,27 @@ predict-then-transmit ordering would incur.
 %==============================================================================
 \section{Numerical Results}
 \label{sec:results}
-\todo{Not yet written in the working draft. Figures exist in figures/.}
+
+% DATA NOTE: figs/fig2_pilots.pdf is currently built from the 15-seed sweep run
+% under the max-variance pilot rule (results_tm/fig2_pilot_sweep_variance15.json).
+% Section III describes the greedy log-det rule. verify_pilot_rule.py shows the
+% two tie (+0.02 at m=6, se 0.12), so the curve does not move -- but regenerate
+% under the epistemic rule before submission so figure and text agree.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figs/fig2_pilots.pdf}
+  \caption{Sum rate against the pilot budget $m$, at $N=441$ ($21\times21$),
+  $M=10$, $K=3$, $n_{\mathrm{RF}}=6$, $f_DT_s=0.1$ and 15 channel realizations;
+  the band is the $95\%$ confidence interval. The upper axis restates $m$ as a
+  fraction of the whole candidate grid: even when every activated port is
+  piloted, the agent measures only $2.3\%$ of the ports. Withdrawing pilots
+  from ports that continue to carry data costs little down to $m=6$, below
+  which the belief can no longer cover the gap.}
+  \label{fig:pilots}
+\end{figure}
+
+\todo{Setup paragraph, discussion of Fig.~\ref{fig:pilots}, hybrid $n_{\rm RF}$
+sweep, baselines.}
 
 %==============================================================================
 \section{Conclusion}
