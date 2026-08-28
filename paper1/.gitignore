@@ -9,3 +9,5 @@
 *.toc
 *.lof
 *.lot
+_render/
+_revert.py

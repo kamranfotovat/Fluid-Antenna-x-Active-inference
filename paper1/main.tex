@@ -9,11 +9,13 @@
 %  MERGE STATUS (rescope to partial sensing + AR(p) + hybrid transmit):
 %    Title, abstract, intro ... DONE
 %    Section II  (model) ...... DONE  -- Q_t subset S_t, AR(p), hybrid
-%    Section III (belief/EFE) . STALE -- still AR(1) rho, still assumes m = M
-%    Section IV  (results) .... EMPTY
-%    Section V   (conclusion) . EMPTY
-%  sections_v2.tex holds the rewritten Section III material; it is NOT input
-%  here. Merge it next, then delete it.
+%    Section III (belief/EFE) . DONE  -- merged from sections_v2.tex
+%    Section IV  (results) .... DONE  -- Fig. 2 + Table I (table1.tex)
+%    Section V   (conclusion) . DONE
+%  Table I is GENERATED: run make_table1.py, never edit table1.tex by hand.
+%  Its block-(a) switching/objective cells stay "--" until
+%  results_tm/fig2_table.json exists (make_fig2_data.py 8 40 fig2_table.json).
+%  sections_v2.tex is now superseded and can be deleted.
 %
 %  BUILD:  ./build.sh
 %=============================================================================
@@ -360,17 +362,16 @@ $m$ ports, and temporally \eqref{eq:predict} carries information across slots,
 so a port piloted earlier retains a usable estimate now.
 
 \subsection{Exact Reduced-Rank Belief}
-Carrying $\bP_k\in\bbC^{pN\times pN}$ is infeasible at our scale --- $N=441$,
-$p=4$ give a $1764\times1764$ covariance per user per slot --- and also
-unnecessary. Truncating $\bR=\bB\boldsymbol{\Lambda}\bB^{\mathrm{H}}$ to the
-$r$ eigenvalues carrying all but $10^{-6}$ of the energy, and noting
-$\bh_k(t)\in\mathrm{range}(\bR)$ for every $t$, the factorization
-$\bh_k(t)=\bB\,\mathbf{c}_k(t)$ with $\mathbf{c}_k(t)\in\bbC^{r}$ holds
-\emph{exactly}, so $\mathbf{c}_k$ is a sufficient statistic. The AR dynamics
-act identically on every port and carry over with $\bI_N$ replaced by $\bI_r$;
-the state falls from $pN$ to $pr$ and the per-slot cost from
-$\mathcal{O}((pN)^3)$ to $\mathcal{O}((pr)^3)$. At $N=441$ the numerical rank
-is $r=26$: some $4.9\times10^{3}$ less arithmetic at no modelling cost.
+A $1764\times1764$ covariance per user per slot is infeasible, and
+unnecessary. Truncating $\bR=\bB\boldsymbol{\Lambda}\bB^{\mathrm{H}}$ to the $r$
+eigenvalues carrying all but $10^{-6}$ of the energy, and noting
+$\bh_k(t)\in\mathrm{range}(\bR)$, the factorization
+$\bh_k(t)=\bB\,\mathbf{c}_k(t)$, $\mathbf{c}_k(t)\in\bbC^{r}$, holds
+\emph{exactly}: $\mathbf{c}_k$ is a sufficient statistic. The AR dynamics act
+identically on every port, so $\bI_N$ becomes $\bI_r$, the state falls from $pN$
+to $pr$ and the cost from $\mathcal{O}((pN)^3)$ to $\mathcal{O}((pr)^3)$. At
+$N=441$ the numerical rank is $r=26$: $4.9\times10^{3}$ less arithmetic at no
+modelling cost.
 
 \subsection{Action: Expected Free Energy}
 The expected free energy of a policy is conventionally the sum of two terms: a
@@ -433,6 +434,8 @@ Being a log-determinant rather than a sum of marginal variances,
 \emph{and} strongly correlated carry nearly the same information, so the second
 earns little once the first is measured.
 
+\input{alg1}
+
 \subsection{Greedy Selection of Both Sets}
 Exact minimization of \eqref{eq:efe} is combinatorial in both arguments, so we
 build the sets greedily, each step adding the port whose inclusion most
@@ -442,72 +445,181 @@ decreases $G$,
     \Big[\,G(\mathcal{S}) - G\big(\mathcal{S}\cup\{p\}\big)\,\Big],
   \label{eq:greedy}
 \end{equation}
-until $|\mathcal{S}_t|=M$; the pilot subset is then built the same way,
+until $|\mathcal{S}_t|=M$, then building $\mathcal{Q}_t$ the same way by
 greedily maximizing \eqref{eq:epis} over $\mathcal{Q}\subseteq\mathcal{S}_t$
-until $|\mathcal{Q}_t|=m$. Note that this is sequential greedy, not a ranking:
-because \eqref{eq:epis} is a log-determinant, the worth of a port depends on
-which ports are already in $\mathcal{Q}$. One objective governs both sets:
-eliminating $\mathcal{Q}$ by inner minimization gives a function of
-$\mathcal{S}$ alone,
+(Algorithm~\ref{alg:aif}). This is sequential greedy, not a ranking: being a
+log-determinant, \eqref{eq:epis} makes a port's worth depend on which ports
+$\mathcal{Q}$ already holds. One objective governs both sets --- eliminating
+$\mathcal{Q}$ by inner minimization leaves
 $\mathcal{S}_t=\argmin_{\mathcal{S}}\min_{\mathcal{Q}\subseteq\mathcal{S}}G$,
-and choosing the two in sequence approximates that at $\mathcal{O}(NM)$ plus
-$\mathcal{O}(Mm)$ per slot. Since
-$\mathrm{Epis}$ is monotone and submodular and the switching term modular,
-greedy carries the standard $(1-1/e)$ guarantee on the information-driven part;
-in practice it is far tighter, and at this operating point $\binom{M}{m}$ is
-small enough to check against exhaustive search --- greedy returns the exact
-optimum in $95\%$ of slots and never falls below $0.9996$ of it. Order within the
-slot matters: we predict, select, pilot, update, and only then precode and
-transmit (Fig.~\ref{fig:timeline}), so that the piloted ports carry a posterior
-error of about $\sigma_e^2$ rather than the one-step aging floor a
-predict-then-transmit ordering would incur.
+which choosing the two in sequence approximates at $\mathcal{O}(NM+Mm)$ per
+slot. As $\mathrm{Epis}$ is monotone submodular and the switching term modular,
+greedy carries the $(1-1/e)$ guarantee on the information-driven part; in
+practice it is far tighter, and $\binom{M}{m}$ here is small enough to check
+exhaustively --- greedy is exactly optimal in $95\%$ of slots and never below
+$0.9996$ of it. Order matters: we predict, select, pilot, update, then precode
+(Fig.~\ref{fig:timeline}), so piloted ports carry a posterior error of about
+$\sigma_e^2$ rather than a one-step aging floor.
 
 %==============================================================================
 \section{Numerical Results}
 \label{sec:results}
 
-% DATA NOTE: figs/fig2_pilots.pdf is currently built from the 15-seed sweep run
-% under the max-variance pilot rule (results_tm/fig2_pilot_sweep_variance15.json).
-% Section III describes the greedy log-det rule. verify_pilot_rule.py shows the
-% two tie (+0.02 at m=6, se 0.12), so the curve does not move -- but regenerate
-% under the epistemic rule before submission so figure and text agree.
+% DATA NOTE: Fig. 2 and Table I both come from results_tm/fig2_table.json --
+% 8 seeds under the greedy log-det pilot rule that Section III describes. The
+% earlier 15-seed max-variance sweep (fig2_pilot_sweep_variance15.json) agreed to
+% within 0.01 b/s/Hz at every m, which is verify_pilot_rule.py's A/B conclusion
+% confirmed at full scale. Table I block (b) is results_tm/fig3_frontier.json;
+% its eta = 1 row reproduces the m = 6 row of block (a) exactly, as it must.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figs/fig2_pilots.pdf}
-  \caption{Sum rate against the pilot budget $m$, at $N=441$ ($21\times21$),
-  $M=10$, $K=3$, $n_{\mathrm{RF}}=6$, $f_DT_s=0.1$ and 15 channel realizations;
+  \caption{Sum rate against the pilot budget $m$ over 8 channel realizations;
   the band is the $95\%$ confidence interval. The upper axis restates $m$ as a
-  fraction of the whole candidate grid: even when every activated port is
-  piloted, the agent measures only $2.3\%$ of the ports. Withdrawing pilots
-  from ports that continue to carry data costs little down to $m=6$, below
-  which the belief can no longer cover the gap.}
+  fraction of the whole candidate grid. Withdrawing pilots from ports that
+  continue to carry data costs little down to $m=6$, below which the belief can
+  no longer cover the gap. The genie is a bound, not a scheme: it knows all $N$
+  ports without spending pilots and moves between them for free.}
   \label{fig:pilots}
 \end{figure}
 
+\input{table1}
+
+\subsection{Simulation Setup}
+The BS serves $K=3$ single-antenna users from a $2\lambda\times2\lambda$ planar
+fluid antenna with $N=441$ ports on a $21\times21$ grid, activating $M=10$ per
+slot through $n_{\mathrm{RF}}=6=2K$ RF chains. Spatial correlation follows
+\eqref{eq:R}; the channel evolves as a space-time Jakes process at $f_DT_s=0.1$
+and the agent models it by \eqref{eq:ar} with $p=4$, fitted once by
+Yule--Walker from the assumed Doppler spectrum. Transmit SNR is $15$\,dB,
+$\rho=0.9$, $\beta_w=0.25$, and $T=40$ slots with all results averaged over the
+second half, so the belief has settled. The \emph{full-CSI genie} used
+throughout is a bound, not a competing scheme: it re-selects the best $M$ of
+all $N$ ports greedily from perfect knowledge of the whole grid, spends no
+pilots to acquire that knowledge, and pays no reconfiguration cost. No causal,
+pilot-limited policy can attain it, and every percentage we quote is a fraction
+of that ceiling. Finally, $m=M$ is the most any partial-sensing scheme can
+measure without abandoning the budget.
+
+\subsection{Pilot Budget}
+Fig.~\ref{fig:pilots} and block~(a) of Table~\ref{tab:ops} report sum rate
+against the pilot budget $m$. At $m=M=10$ the agent reaches
+$20.16$\,bits/s/Hz, $91.2\%$ of the genie. The comparison deserves care: $m=M$
+pilots every \emph{activated} port, but that set is $10$ of $441$, so only
+$2.27\%$ of the array is measured and the other $97.7\%$ is inferred from $\bR$
+and the temporal model. The gap to the genie is the price of never looking at
+the rest of the grid, not of a coarse estimate.
+
+Withdrawing pilots costs little over the useful range. At $m=6$ --- $40\%$
+fewer pilot symbols --- the rate is $18.50$\,bits/s/Hz, $83.7\%$ of the genie,
+so $7.5$ points of genie-relative rate buy back four of ten pilots. An
+unpiloted port is not thereby unknown: it is predicted through \eqref{eq:ar}
+and tightened by correlation with the piloted ports, since \eqref{eq:mean}
+updates the whole reduced-rank state from an $m$-dimensional innovation. Below $m=6$ that mechanism runs out --- $14.86$ ($67.2\%$) at
+$m=4$, $9.65$ ($43.6\%$) at $m=2$ --- a collapse rather than a decline: two
+measurements cannot keep $r=26$ modes in step with the channel, so prediction
+error outruns the AR model and the precoder inverts a covariance it no longer
+trusts.
+
+Block~(a) also shows the budget governing how much the array \emph{moves}:
+switching rises monotonically with $m$, from $1.01$ ports per slot at $m=2$ to
+$7.58$ at $m=M$. An agent that cannot see is also unwilling to act, because
+\eqref{eq:efe} cannot certify that an unmeasured port is worth the
+reconfiguration. The objective therefore rises more gently than the rate ---
+$12.06$ at $m=6$ against $12.58$ at $m=M$ --- so $m=6$ retains $95.9\%$ of the
+best attainable objective for $40\%$ fewer pilots, and we adopt it hereafter.
+
+\subsection{The Switching Cost}
+Block~(b) of Table~\ref{tab:ops} sweeps the switching weight
+$\eta_{\mathrm{sw}}$ at $m=6$, and shows how little rate the objective
+\eqref{eq:problem} trades away. Raising $\eta_{\mathrm{sw}}$ from $0$ to $4$ takes the agent from $18.89$
+reconfigured ports per slot --- rebuilding the aperture every slot --- to none
+at all, while the sum rate moves by $0.89$\,bits/s/Hz: an array that never
+moves is within $2.7\%$ of one that moves constantly.
+
+Rate is also not monotone in $\eta_{\mathrm{sw}}$. It \emph{peaks} at
+$\eta_{\mathrm{sw}}=1$ ($18.50$\,bits/s/Hz) rather than at
+$\eta_{\mathrm{sw}}=0$ ($17.61$): charging for movement makes the array faster.
+Under partial CSI a retained port accumulates posterior precision across slots,
+whereas an abandoned one takes its belief with it and its replacement starts
+from the prediction alone, so an unpenalized agent chases marginally better
+ports and pays in estimation quality. Some reluctance to move is an information
+policy, not merely a concession to the hardware --- a partial-CSI effect
+invisible to any formulation that assumes the channel is known before the port
+is chosen.
+
+Finally, the genie loses on the objective. It leads by $3.64$\,bits/s/Hz in raw
+rate but reconfigures $15.34$ ports per slot, so at $\eta_{\mathrm{sw}}=1$ its
+objective is $6.78$ against our $18.01$. Equating the two,
+$(22.12-18.01)/(15.34-0.00)$, the genie is beaten for any
+$\eta_{\mathrm{sw}}>0.27$: unless reconfiguring a port is worth less than a
+quarter of a bit per second per hertz, perfect CSI with no movement discipline
+is the worse policy. This is the sense in which the switching term earns its
+place inside the expected free energy rather than being appended to it.
+
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figs/fig3_frontier.pdf}
-  \caption{Sum rate against reconfiguration cost as the switching weight
-  $\eta_{\mathrm{sw}}$ is swept, at $m=6$ over 8 realizations. Dotted lines are
-  iso-objective contours of \eqref{eq:problem} at $\eta_{\mathrm{sw}}=1$; the
-  two dashed contours pass through the genie and through our best operating
-  point. The frontier is nearly flat --- the agent moves from $18.9$
-  reconfigured ports per slot down to none while the sum rate varies by
-  $0.89$\,bits/s/Hz, and in fact \emph{peaks} at $\eta_{\mathrm{sw}}=1$ rather
-  than at $\eta_{\mathrm{sw}}=0$: holding a port lets its belief sharpen, so
-  some reluctance to move buys rate instead of costing it. The genie leads on
-  raw rate but lies on a far worse contour, and is beaten on the objective for
-  any $\eta_{\mathrm{sw}}>0.27$.}
-  \label{fig:frontier}
+  \includegraphics[width=\columnwidth]{figs/fig3_ablation.pdf}
+  \caption{Epistemic ablation at $m=6$ over 8 realizations: everything is held
+  fixed and only the epistemic weight $\beta_w$ is varied, so $\beta_w=0$ is
+  pure rate-greedy selection with no active inference; it is stranded at
+  $66.0\%$ of the genie, against $83.7\%$ at the marked operating point. The
+  genie again pays neither pilots nor switching. The dashed curve repeats the
+  sweep at $\eta_{\mathrm{sw}}=4$, where every policy is driven to zero
+  reconfiguration (Table~\ref{tab:ops}), so the two arms move identically and
+  the remaining gap cannot be attributed to movement.}
+  \label{fig:ablation}
 \end{figure}
+\subsection{Does the Epistemic Term Earn Its Place?}
+Active inference would be an empty relabelling of rate-greedy selection if the
+epistemic term did no work, so we ablate it: Fig.~\ref{fig:ablation} holds
+belief, pilot rule, precoder and channel fixed and varies only $\beta_w$. At
+$\beta_w=0$ the agent selects purely on predicted rate and is stranded at
+$14.60$\,bits/s/Hz, $66.0\%$ of the genie; at $\beta_w=0.25$ it reaches
+$18.50$, $83.7\%$.
 
-\todo{Setup paragraph, discussion of Figs.~\ref{fig:pilots}
-and~\ref{fig:frontier}, hybrid $n_{\rm RF}$ sweep, baselines.}
+A sceptic can reply that the exploring agent merely moves more, and that
+movement buys the rate. The dashed curve settles it: at $\eta_{\mathrm{sw}}=4$
+both agents are driven to \emph{zero} reconfiguration, so movement is identical
+by construction, and the epistemic agent still leads by $4.30$\,bits/s/Hz ---
+$19.4$ points of genie-relative rate --- while mean posterior variance across
+all $N$ ports falls from $0.72$ to $0.37$. The term buys knowing \emph{where to
+look}, not looking more.
+
+The optimum is interior: beyond $\beta_w\approx0.25$ switching saturates near
+$12$ ports per slot and rate falls to $74\%$ of the genie by $\beta_w=2$. We
+take $\beta_w=0.25$, which maximizes rate. A smaller $\beta_w=0.05$ does score
+higher on the $\eta_{\mathrm{sw}}=1$ objective ($17.94$ against $12.06$), but
+only by reconfiguring $0.08$ ports per slot --- a static array, not a fluid
+one. The objective rewards standing still; the point of a fluid antenna is that
+it need not.
+
+\subsection{Hybrid Transmission}
+All results use $n_{\mathrm{RF}}=6=2K$ RF chains, not $M=10$. At this
+threshold the hybrid precoder \eqref{eq:hybrid} is digital-exact: against a
+fully digital front end the loss is below $0.001$\,bits/s/Hz at every pilot
+budget in Table~\ref{tab:ops}. The $40\%$ saving in RF chains is free, so the
+results above are not artefacts of a relaxed transmit architecture.
 
 %==============================================================================
 \section{Conclusion}
 \label{sec:conc}
-\todo{Not yet written in the working draft.}
+We cast joint port selection and pilot allocation for a fluid antenna as active
+inference, deriving a two-term expected free energy from an explicit preference
+density in which reconfiguration cost is a preference over outcomes rather than
+a third, ad hoc penalty. The agent attains $91.2\%$ of a full-CSI genie's sum
+rate while measuring $2.3\%$ of the candidate ports and $83.7\%$ while
+measuring $1.4\%$, and beats that genie on the reconfiguration-aware objective
+for any switching price above $0.27$\,bits/s/Hz per port. Ablating the
+epistemic term costs $19.4$ points of genie-relative rate at equal switching,
+so the information term is load-bearing rather than nominal. Both sets are
+chosen greedily against a monotone submodular epistemic value at
+$\mathcal{O}(NM+Mm)$ per slot.
+
+Two extensions are out of scope here: the AR coefficients are fitted once from
+an assumed Doppler spectrum, and learning them online so the agent tracks an
+unknown or time-varying $f_D$ is left to future work, as is learning the
+spatial correlation $\bR$ rather than assuming it from the array geometry.
 
 %==============================================================================
 \bibliographystyle{IEEEtran}

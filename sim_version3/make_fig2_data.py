@@ -40,7 +40,8 @@ M_LIST = [2, 4, 6, 8, 10]
 PILOT_RULE = "epistemic"      # what Section III describes; verify_pilot_rule.py A/B says
                               # it ties the old max-variance heuristic (+0.02 at m=6, se 0.12)
 HALF = slice(T // 2, None)
-OUT = Path(__file__).resolve().parent.parent / "results_tm" / "fig2_pilot_sweep.json"
+_name = sys.argv[3] if len(sys.argv) > 3 else "fig2_pilot_sweep.json"
+OUT = Path(__file__).resolve().parent.parent / "results_tm" / _name
 
 
 def main() -> int:

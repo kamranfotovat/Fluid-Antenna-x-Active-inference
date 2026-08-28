@@ -1,0 +1,35 @@
+\begin{algorithm}[t]
+\caption{Active inference for joint port selection and pilot allocation (slot $t$)}
+\label{alg:aif}
+\begin{algorithmic}[1]
+\REQUIRE belief $\{\hat{\bz}_k,\bP_k\}_{k=1}^{K}$, previous set
+         $\mathcal{S}_{t-1}$, budgets $M$, $m$, weights
+         $\beta_w,\eta_{\mathrm{sw}}$
+\ENSURE  activated set $\mathcal{S}_t$, pilot set $\mathcal{Q}_t$, precoder $\bW$
+\STATE $\hat{\bz}_k\!\leftarrow\!\bF\hat{\bz}_k$,\;
+       $\bP_k\!\leftarrow\!\bF\bP_k\bF^{\mathrm{H}}\!+\!\mathbf{Q}_k$\;$\forall k$
+       \hfill $\triangleright$ predict, \eqref{eq:predict}
+\STATE $\mathcal{S}\leftarrow\emptyset$
+\FOR{$i=1$ \TO $M$}
+  \STATE $p^{\star}\!\leftarrow\!\argmax_{p\notin\mathcal{S}}
+         \big[G(\mathcal{S})-G(\mathcal{S}\cup\{p\})\big]$
+         \hfill $\triangleright$ \eqref{eq:efe}
+  \STATE $\mathcal{S}\leftarrow\mathcal{S}\cup\{p^{\star}\}$
+\ENDFOR
+\STATE $\mathcal{S}_t\leftarrow\mathcal{S}$;\;\; $\mathcal{Q}\leftarrow\emptyset$
+\FOR{$j=1$ \TO $m$}
+  \STATE $q^{\star}\!\leftarrow\!\argmax_{q\in\mathcal{S}_t\setminus\mathcal{Q}}
+         \mathrm{Epis}\big(\mathcal{Q}\cup\{q\}\big)$
+         \hfill $\triangleright$ \eqref{eq:epis}
+  \STATE $\mathcal{Q}\leftarrow\mathcal{Q}\cup\{q^{\star}\}$
+\ENDFOR
+\STATE $\mathcal{Q}_t\leftarrow\mathcal{Q}$
+\STATE transmit pilots on $\mathcal{Q}_t$, receive $\by_k$
+\STATE update the belief from the $m$-dim.\ innovation
+       \hfill $\triangleright$ \eqref{eq:mean}, \eqref{eq:joseph}
+\STATE $\bW\leftarrow\bF_{\mathrm{RF}}\bW_{\mathrm{BB}}$ from the updated belief
+       \hfill $\triangleright$ \eqref{eq:hybrid}
+\STATE transmit on $\mathcal{S}_t$; incur
+       $\eta_{\mathrm{sw}}|\mathcal{S}_t\triangle\mathcal{S}_{t-1}|$
+\end{algorithmic}
+\end{algorithm}
