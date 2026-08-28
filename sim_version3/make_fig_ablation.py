@@ -103,7 +103,10 @@ def main() -> int:
     ax.set_xlabel("epistemic weight $\\beta_w$", labelpad=2)
     ax.set_ylabel("sum rate (bits/s/Hz)", labelpad=2)
     ax.set_xlim(-0.4, len(betas) - 0.6)
-    ax.set_ylim(min(r1.min(), r4.min()) - 1.4, gr + 4.7)
+    # zoom out so the legend has a clear quadrant at the bottom right: the
+    # rate curves are pushed into the upper half and the switching axis is
+    # offset so its curve stays there too.
+    ax.set_ylim(min(r1.min(), r4.min()) - 5.5, gr + 1.0)
 
     # ---- switching on the right axis
     ax2 = ax.twinx()
@@ -111,11 +114,12 @@ def main() -> int:
              mew=0.9, zorder=5, label="ports reconfigured / slot")
     ax2.set_ylabel("ports reconfigured / slot", color=C_SW, labelpad=2)
     ax2.tick_params(axis="y", colors=C_SW, direction="in", width=0.7, size=3)
-    ax2.set_ylim(-0.9, max(w1.max(), 13) * 1.70)
+    ax2.set_ylim(-9.5, max(w1.max(), 12.5) * 1.10)
+    ax2.set_yticks([0, 5, 10])
 
     h1, l1 = ax.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
-    leg = ax.legend(h1 + h2, l1 + l2, loc="upper left", frameon=True,
+    leg = ax.legend(h1 + h2, l1 + l2, loc="lower right", frameon=True,
                     framealpha=1.0, edgecolor="black", fancybox=False,
                     handlelength=1.9, borderaxespad=0.4, labelspacing=0.28,
                     borderpad=0.4)
